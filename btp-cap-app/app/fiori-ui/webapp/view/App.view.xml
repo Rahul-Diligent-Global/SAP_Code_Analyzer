@@ -1,0 +1,12 @@
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    displayBlock="true"
+    controllerName="com.company.abapanalyzer.controller.App">
+    <App id="appControl"
+         class="{= ${device>/support/touch} ? 'sapUiSizeCozy' : 'sapUiSizeCompact'}"
+         busy="{viewModel>/busy}"
+         busyIndicatorDelay="0">
+    </App>
+</mvc:View>
+

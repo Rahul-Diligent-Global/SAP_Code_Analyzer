@@ -1,0 +1,9 @@
+node_modules/
+gen/
+mta_archives/
+*.mtar
+.env
+*.log
+.DS_Store
+default-env.json
+connection.properties

@@ -1,0 +1,176 @@
+_schema-version: '3.1'
+ID: abap-code-analyzer-saas
+version: 1.0.0
+description: ABAP Code Analyzer SaaS - Multi-Tenant with Security
+
+parameters:
+  enable-parallel-deployments: true
+
+modules:
+  # ═══════════════════════════════════════════════════════════
+  # CAP Backend Service (Multi-Tenant)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 512M
+      disk-quota: 1024M
+      health-check-type: http
+      health-check-http-endpoint: /health
+    properties:
+      CLAUDE_MODEL: "claude-sonnet-4-20250514"
+      CLAUDE_MAX_TOKENS: "8192"
+      CLAUDE_API_URL: "https://api.anthropic.com/v1/messages"
+      APP_DOMAIN: "${default-domain}"
+    requires:
+      - name: abap-analyzer-auth
+      - name: abap-analyzer-mtx
+      - name: abap-analyzer-registry
+      - name: abap-analyzer-sm
+      - name: abap-analyzer-destination
+      - name: abap-analyzer-connectivity
+      - name: abap-analyzer-credstore
+      - name: abap-analyzer-auditlog
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+
+  # ═══════════════════════════════════════════════════════════
+  # MTX Sidecar (Multitenancy Extension)
+  # Handles tenant DB schema provisioning
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-mtx
+    type: nodejs
+    path: gen/mtx/sidecar
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+    requires:
+      - name: abap-analyzer-auth
+      - name: abap-analyzer-sm
+      - name: abap-analyzer-registry
+    provides:
+      - name: mtx-api
+        properties:
+          mtx-url: ${default-url}
+
+  # ═══════════════════════════════════════════════════════════
+  # App Router (Tenant-Aware, handles subdomain routing)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-app
+    type: approuter.nodejs
+    path: app/
+    parameters:
+      memory: 256M
+      disk-quota: 512M
+      keep-existing-routes: true
+    properties:
+      TENANT_HOST_PATTERN: "^(.*)-${default-uri}"
+    requires:
+      - name: abap-analyzer-auth
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: mtx-api
+        group: destinations
+        properties:
+          name: mtx-api
+          url: ~{mtx-url}
+          forwardAuthToken: true
+
+  # ═══════════════════════════════════════════════════════════
+  # DB Deployer (Schema for provider account)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-db-deployer
+    type: hdb
+    path: gen/db
+    parameters:
+      buildpack: nodejs_buildpack
+    requires:
+      - name: abap-analyzer-sm
+
+resources:
+  # ═══════════════════════════════════════════════════════════
+  # XSUAA (Multi-Tenant Auth)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security-mt.json
+
+  # ═══════════════════════════════════════════════════════════
+  # SaaS Provisioning Service (Subscription Management)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-registry
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: saas-registry
+      service-plan: application
+      config:
+        xsappname: abap-code-analyzer
+        appName: abap-code-analyzer
+        displayName: "ABAP Code Analyzer"
+        description: "AI-Powered ABAP Code Analysis & BRD Document Generator"
+        category: "SAP BTP Applications"
+        appUrls:
+          getDependencies: ~{srv-api/srv-url}/mtx/v1/provisioning/dependencies
+          onSubscription: ~{srv-api/srv-url}/mtx/v1/provisioning/tenant/{tenantId}
+    requires:
+      - name: srv-api
+
+  # ═══════════════════════════════════════════════════════════
+  # Service Manager (HDI Container per Tenant)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-sm
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: service-manager
+      service-plan: container
+
+  # ═══════════════════════════════════════════════════════════
+  # Destination Service (Per-Tenant SAP connections)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+
+  # ═══════════════════════════════════════════════════════════
+  # Connectivity Service (Cloud Connector)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-connectivity
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: connectivity
+      service-plan: lite
+
+  # ═══════════════════════════════════════════════════════════
+  # Credential Store (Encryption Keys & API Keys)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-credstore
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: credstore
+      service-plan: standard
+      config:
+        authentication:
+          type: basic
+
+  # ═══════════════════════════════════════════════════════════
+  # Audit Log Service (Compliance)
+  # ═══════════════════════════════════════════════════════════
+  - name: abap-analyzer-auditlog
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: auditlog
+      service-plan: oauth2
+

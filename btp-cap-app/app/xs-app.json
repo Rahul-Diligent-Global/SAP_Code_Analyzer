@@ -1,0 +1,20 @@
+{
+    "welcomeFile": "/fiori-ui/webapp/index.html",
+    "authenticationMethod": "route",
+    "routes": [
+        {
+            "source": "^/api/(.*)$",
+            "target": "/api/$1",
+            "authenticationType": "xsuaa",
+            "destination": "srv-api",
+            "csrfProtection": true
+        },
+        {
+            "source": "^/fiori-ui/(.*)$",
+            "target": "/fiori-ui/$1",
+            "localDir": "fiori-ui/webapp",
+            "authenticationType": "xsuaa"
+        }
+    ]
+}
+

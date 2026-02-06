@@ -1,0 +1,27 @@
+{
+    "requires": {
+        "SAP_ONPREM": {
+            "kind": "odata",
+            "[development]": {
+                "kind": "mocked"
+            },
+            "[production]": {
+                "credentials": {
+                    "destination": "SAP_ONPREM_RFC"
+                }
+            }
+        },
+        "db": {
+            "[development]": {
+                "kind": "sqlite",
+                "credentials": {
+                    "database": ":memory:"
+                }
+            },
+            "[production]": {
+                "kind": "hana"
+            }
+        }
+    }
+}
+

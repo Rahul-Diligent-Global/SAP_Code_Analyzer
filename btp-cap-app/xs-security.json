@@ -1,0 +1,40 @@
+{
+    "xsappname": "abap-code-analyzer",
+    "tenant-mode": "dedicated",
+    "description": "ABAP Code Analyzer Security Configuration",
+    "scopes": [
+        {
+            "name": "$XSAPPNAME.Viewer",
+            "description": "View ABAP objects and source code"
+        },
+        {
+            "name": "$XSAPPNAME.Admin",
+            "description": "Generate documents and manage templates"
+        }
+    ],
+    "role-templates": [
+        {
+            "name": "Viewer",
+            "description": "View ABAP Objects",
+            "scope-references": ["$XSAPPNAME.Viewer"]
+        },
+        {
+            "name": "Admin",
+            "description": "Full Access - Generate Documents",
+            "scope-references": ["$XSAPPNAME.Viewer", "$XSAPPNAME.Admin"]
+        }
+    ],
+    "role-collections": [
+        {
+            "name": "ABAPAnalyzer_Viewer",
+            "description": "View ABAP objects",
+            "role-template-references": ["$XSAPPNAME.Viewer"]
+        },
+        {
+            "name": "ABAPAnalyzer_Admin",
+            "description": "Full access including document generation",
+            "role-template-references": ["$XSAPPNAME.Admin"]
+        }
+    ]
+}
+

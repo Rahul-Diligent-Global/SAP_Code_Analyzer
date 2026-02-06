@@ -1,0 +1,158 @@
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:layout="sap.ui.layout"
+    xmlns:f="sap.f"
+    xmlns:ce="sap.ui.codeeditor"
+    xmlns:unified="sap.ui.unified"
+    controllerName="com.company.abapanalyzer.controller.ObjectDetail">
+
+    <Page id="objectDetailPage"
+          title="Object Details"
+          showNavButton="true"
+          navButtonPress=".onNavBack"
+          busy="{viewModel>/busy}"
+          class="sapUiResponsiveContentPadding">
+
+        <!-- Header Actions -->
+        <customHeader>
+            <Bar>
+                <contentLeft>
+                    <Button icon="sap-icon://nav-back" press=".onNavBack"/>
+                    <Title text="{viewModel>/objectDetail/objectName}" level="H3"/>
+                </contentLeft>
+                <contentRight>
+                    <Button
+                        text="Analyze Code"
+                        icon="sap-icon://inspection"
+                        type="Default"
+                        press=".onAnalyzeCode"/>
+                    <MenuButton text="Generate Document" icon="sap-icon://document" type="Emphasized">
+                        <menu>
+                            <Menu>
+                                <MenuItem text="Generate BRD (Word)" icon="sap-icon://doc-attachment" press=".onGenerateDocx"/>
+                                <MenuItem text="Generate BRD (PDF)" icon="sap-icon://pdf-attachment" press=".onGeneratePdf"/>
+                                <MenuItem text="Functional Spec (Word)" icon="sap-icon://document-text" press=".onGenerateFuncSpec"/>
+                            </Menu>
+                        </menu>
+                    </MenuButton>
+                </contentRight>
+            </Bar>
+        </customHeader>
+
+        <content>
+            <VBox class="sapUiSmallMargin">
+
+                <!-- Object Info Panel -->
+                <Panel headerText="Object Information" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
+                    <content>
+                        <layout:Grid defaultSpan="L4 M6 S12" class="sapUiSmallMargin">
+                            <layout:VerticalLayout class="sapUiSmallMarginBottom">
+                                <Label text="Object Name" design="Bold"/>
+                                <Text text="{viewModel>/objectDetail/objectName}"/>
+                            </layout:VerticalLayout>
+                            <layout:VerticalLayout class="sapUiSmallMarginBottom">
+                                <Label text="Title" design="Bold"/>
+                                <Text text="{viewModel>/objectDetail/title}"/>
+                            </layout:VerticalLayout>
+                            <layout:VerticalLayout class="sapUiSmallMarginBottom">
+                                <Label text="Type" design="Bold"/>
+                                <ObjectStatus text="{viewModel>/objectDetail/objectType}" state="Information"/>
+                            </layout:VerticalLayout>
+                            <layout:VerticalLayout class="sapUiSmallMarginBottom">
+                                <Label text="Package" design="Bold"/>
+                                <Text text="{viewModel>/objectDetail/package}"/>
+                            </layout:VerticalLayout>
+                            <layout:VerticalLayout class="sapUiSmallMarginBottom">
+                                <Label text="Author" design="Bold"/>
+                                <Text text="{viewModel>/objectDetail/author}"/>
+                            </layout:VerticalLayout>
+                            <layout:VerticalLayout class="sapUiSmallMarginBottom">
+                                <Label text="Total Lines" design="Bold"/>
+                                <ObjectNumber number="{viewModel>/objectDetail/totalLines}" unit="lines"/>
+                            </layout:VerticalLayout>
+                        </layout:Grid>
+                    </content>
+                </Panel>
+
+                <!-- Includes Panel -->
+                <Panel headerText="Includes / Components"
+                       expandable="true"
+                       expanded="{= ${viewModel>/includes}.length > 0}"
+                       visible="{= ${viewModel>/includes}.length > 0}"
+                       class="sapUiSmallMarginBottom">
+                    <content>
+                        <List items="{viewModel>/includes}" mode="None">
+                            <StandardListItem
+                                title="{viewModel>includeName}"
+                                description="{viewModel>includeType}"
+                                info="{viewModel>lineCount} lines"
+                                icon="sap-icon://source-code"
+                                type="Active"
+                                press=".onIncludePress"/>
+                        </List>
+                    </content>
+                </Panel>
+
+                <!-- Source Code Panel -->
+                <Panel headerText="Source Code" expandable="true" expanded="true">
+                    <headerToolbar>
+                        <Toolbar>
+                            <Title text="Source Code" level="H5"/>
+                            <ToolbarSpacer/>
+                            <Select id="sectionFilter"
+                                    selectedKey="ALL"
+                                    change=".onSectionFilter">
+                                <items>
+                                    <core:Item key="ALL" text="All Sections"/>
+                                </items>
+                            </Select>
+                            <Button icon="sap-icon://copy" tooltip="Copy Code" press=".onCopyCode"/>
+                            <ToggleButton
+                                id="lineNumbersToggle"
+                                text="Line Numbers"
+                                pressed="true"
+                                press=".onToggleLineNumbers"/>
+                        </Toolbar>
+                    </headerToolbar>
+                    <content>
+                        <!-- Code Editor -->
+                        <ce:CodeEditor
+                            id="codeEditor"
+                            value="{viewModel>/formattedCode}"
+                            type="abap"
+                            height="500px"
+                            editable="false"
+                            syntaxHints="true"
+                            lineNumbers="true"
+                            class="sapUiSmallMarginTop"/>
+                    </content>
+                </Panel>
+
+                <!-- Document Generation Options (shown as dialog) -->
+                <!-- Analysis Result Panel (shown after analyze) -->
+                <Panel id="analysisPanel"
+                       headerText="AI Analysis Result"
+                       expandable="true"
+                       expanded="true"
+                       visible="{= !!${viewModel>/analysis}}"
+                       class="sapUiSmallMarginTop">
+                    <content>
+                        <MessageStrip
+                            text="Analysis generated by Claude AI. Review before generating the final document."
+                            type="Information"
+                            showIcon="true"
+                            class="sapUiSmallMarginBottom"/>
+                        <FormattedText
+                            htmlText="{viewModel>/analysisHtml}"
+                            class="sapUiSmallMargin"/>
+                    </content>
+                </Panel>
+
+            </VBox>
+        </content>
+
+    </Page>
+</mvc:View>
+

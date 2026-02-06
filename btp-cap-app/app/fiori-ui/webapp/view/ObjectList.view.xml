@@ -1,0 +1,151 @@
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.f"
+    xmlns:fb="sap.ui.comp.filterbar"
+    controllerName="com.company.abapanalyzer.controller.ObjectList">
+
+    <Page id="objectListPage"
+          title="{i18n>appTitle}"
+          showNavButton="false"
+          class="sapUiResponsiveContentPadding">
+
+        <!-- Header Toolbar -->
+        <customHeader>
+            <Bar>
+                <contentLeft>
+                    <Title text="ABAP Code Analyzer" level="H3"/>
+                </contentLeft>
+                <contentMiddle>
+                    <SearchField
+                        id="searchField"
+                        placeholder="Search objects by name..."
+                        width="400px"
+                        search=".onSearch"
+                        liveChange=".onSearch"/>
+                </contentMiddle>
+                <contentRight>
+                    <Button
+                        text="Refresh from SAP"
+                        icon="sap-icon://synchronize"
+                        type="Emphasized"
+                        press=".onRefreshObjects"/>
+                </contentRight>
+            </Bar>
+        </customHeader>
+
+        <content>
+            <VBox class="sapUiSmallMargin">
+
+                <!-- Filter Bar -->
+                <HBox class="sapUiSmallMarginBottom" alignItems="Center">
+                    <Label text="Category:" class="sapUiSmallMarginEnd"/>
+                    <Select id="categoryFilter"
+                            selectedKey="{viewModel>/selectedCategory}"
+                            change=".onCategoryFilter">
+                        <items>
+                            <core:Item key="ALL" text="All Objects"/>
+                            <core:Item key="REPORT" text="Reports / Programs"/>
+                            <core:Item key="CLASS" text="ABAP Classes"/>
+                            <core:Item key="FUNCTION_MODULE" text="Function Modules"/>
+                            <core:Item key="FUNCTION_GROUP" text="Function Groups"/>
+                            <core:Item key="BADI" text="BADIs"/>
+                            <core:Item key="ENHANCEMENT_IMPL" text="Enhancements"/>
+                            <core:Item key="INCLUDE" text="Includes"/>
+                        </items>
+                    </Select>
+
+                    <ToolbarSpacer/>
+
+                    <ObjectStatus
+                        text="{= ${viewModel>/objectCount} + ' objects found'}"
+                        state="Information"
+                        class="sapUiSmallMarginEnd"/>
+                </HBox>
+
+                <!-- Object Table -->
+                <Table id="objectTable"
+                       items="{
+                           path: '/CustomObjects',
+                           sorter: { path: 'objectName' },
+                           parameters: { $count: true }
+                       }"
+                       growing="true"
+                       growingThreshold="50"
+                       growingScrollToLoad="true"
+                       mode="SingleSelectMaster"
+                       selectionChange=".onObjectSelect"
+                       sticky="ColumnHeaders,HeaderToolbar"
+                       alternateRowColors="true"
+                       class="sapUiSmallMarginTop">
+
+                    <headerToolbar>
+                        <OverflowToolbar>
+                            <Title text="Custom ABAP Objects" level="H4"/>
+                            <ToolbarSpacer/>
+                            <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onExport"/>
+                            <Button icon="sap-icon://sort" tooltip="Sort" press=".onSort"/>
+                        </OverflowToolbar>
+                    </headerToolbar>
+
+                    <columns>
+                        <Column width="25%">
+                            <Text text="Object Name"/>
+                        </Column>
+                        <Column width="20%">
+                            <Text text="Type"/>
+                        </Column>
+                        <Column width="15%">
+                            <Text text="Category"/>
+                        </Column>
+                        <Column width="15%">
+                            <Text text="Package"/>
+                        </Column>
+                        <Column width="12%">
+                            <Text text="Created By"/>
+                        </Column>
+                        <Column width="13%">
+                            <Text text="Created On"/>
+                        </Column>
+                    </columns>
+
+                    <items>
+                        <ColumnListItem type="Navigation" press=".onObjectPress">
+                            <cells>
+                                <ObjectIdentifier
+                                    title="{objectName}"
+                                    text="{objectTypeText}"/>
+                                <ObjectStatus
+                                    text="{objectType}"
+                                    state="{= ${category} === 'CLASS' ? 'Success' :
+                                             ${category} === 'REPORT' ? 'Information' :
+                                             ${category} === 'FUNCTION_MODULE' ? 'Warning' : 'None'}"/>
+                                <Text text="{category}"/>
+                                <Text text="{package}"/>
+                                <Text text="{createdByAbap}"/>
+                                <Text text="{
+                                    path: 'createdOnAbap',
+                                    type: 'sap.ui.model.type.Date',
+                                    formatOptions: { pattern: 'dd.MM.yyyy' }
+                                }"/>
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+
+            </VBox>
+        </content>
+
+        <!-- Info Toolbar at bottom -->
+        <footer>
+            <Toolbar>
+                <ToolbarSpacer/>
+                <Label text="Powered by Claude AI | SAP BTP Cloud Application Programming Model"
+                       class="sapUiTinyMargin"/>
+            </Toolbar>
+        </footer>
+
+    </Page>
+</mvc:View>
+

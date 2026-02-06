@@ -1,0 +1,88 @@
+{
+    "xsappname": "abap-code-analyzer",
+    "tenant-mode": "shared",
+    "description": "ABAP Code Analyzer - Multi-Tenant SaaS",
+    "scopes": [
+        {
+            "name": "$XSAPPNAME.Viewer",
+            "description": "View ABAP objects and source code"
+        },
+        {
+            "name": "$XSAPPNAME.Developer",
+            "description": "Generate documents and analyze code"
+        },
+        {
+            "name": "$XSAPPNAME.Admin",
+            "description": "Tenant administration"
+        },
+        {
+            "name": "$XSAPPNAME.SaaSAdmin",
+            "description": "SaaS provider administration",
+            "grant-as-authority-to-apps": ["$XSAPPNAME(application, $XSAPPNAME)"]
+        },
+        {
+            "name": "$XSAPPNAME.Callback",
+            "description": "SaaS Registry callback",
+            "grant-as-authority-to-apps": ["$XSAPPNAME(application, sap-provisioning, mt-callback)"]
+        }
+    ],
+    "authorities": [
+        "$XSAPPNAME.Callback",
+        "$XSAPPNAME.SaaSAdmin"
+    ],
+    "role-templates": [
+        {
+            "name": "Viewer",
+            "description": "View ABAP objects (read-only)",
+            "scope-references": ["$XSAPPNAME.Viewer"]
+        },
+        {
+            "name": "Developer",
+            "description": "View, analyze, and generate documents",
+            "scope-references": ["$XSAPPNAME.Viewer", "$XSAPPNAME.Developer"]
+        },
+        {
+            "name": "TenantAdmin",
+            "description": "Full tenant administration",
+            "scope-references": [
+                "$XSAPPNAME.Viewer",
+                "$XSAPPNAME.Developer",
+                "$XSAPPNAME.Admin"
+            ]
+        },
+        {
+            "name": "SaaSProviderAdmin",
+            "description": "SaaS provider level administration",
+            "scope-references": [
+                "$XSAPPNAME.Viewer",
+                "$XSAPPNAME.Developer",
+                "$XSAPPNAME.Admin",
+                "$XSAPPNAME.SaaSAdmin"
+            ]
+        }
+    ],
+    "role-collections": [
+        {
+            "name": "ABAP_Analyzer_Viewer",
+            "description": "View objects",
+            "role-template-references": ["$XSAPPNAME.Viewer"]
+        },
+        {
+            "name": "ABAP_Analyzer_Developer",
+            "description": "Analyze and generate docs",
+            "role-template-references": ["$XSAPPNAME.Developer"]
+        },
+        {
+            "name": "ABAP_Analyzer_TenantAdmin",
+            "description": "Tenant administration",
+            "role-template-references": ["$XSAPPNAME.TenantAdmin"]
+        }
+    ],
+    "oauth2-configuration": {
+        "token-validity": 3600,
+        "redirect-uris": [
+            "https://*.cfapps.*.hana.ondemand.com/**"
+        ]
+    }
+}
+

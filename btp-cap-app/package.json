@@ -1,0 +1,60 @@
+{
+  "name": "abap-code-analyzer",
+  "version": "1.0.0",
+  "description": "SAP BTP CAP Application - ABAP Code Analyzer & BRD Generator with Claude AI",
+  "repository": "",
+  "license": "ISC",
+  "dependencies": {
+    "@sap/cds": "^7",
+    "@sap/cds-odata-v2-adapter-proxy": "^1",
+    "@sap-cloud-sdk/http-client": "^3",
+    "@sap-cloud-sdk/connectivity": "^3",
+    "@anthropic-ai/sdk": "^0.26",
+    "express": "^4",
+    "docx": "^8",
+    "pdfkit": "^0.13",
+    "passport": "^0.6",
+    "@sap/xssec": "^3",
+    "@sap/xsenv": "^4"
+  },
+  "devDependencies": {
+    "@sap/cds-dk": "^7",
+    "@sap/ux-specification": "latest",
+    "rimraf": "^5"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "build": "cds build --production",
+    "deploy": "cf push",
+    "watch": "cds watch"
+  },
+  "cds": {
+    "requires": {
+      "SAP_ONPREM": {
+        "kind": "odata",
+        "model": "srv/external/SAP_ONPREM",
+        "[production]": {
+          "credentials": {
+            "destination": "SAP_ONPREM_RFC",
+            "path": "/sap/bc/srt/scs_ext/sap"
+          }
+        }
+      },
+      "auth": {
+        "[production]": {
+          "kind": "xsuaa"
+        },
+        "[development]": {
+          "kind": "dummy"
+        }
+      }
+    },
+    "hana": {
+      "deploy-format": "hdbtable"
+    }
+  },
+  "sapux": [
+    "app/fiori-ui"
+  ]
+}
+
