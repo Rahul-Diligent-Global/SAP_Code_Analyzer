@@ -54,10 +54,8 @@ FUNCTION z_mcp_get_source_code.
         lv_badi_class_def TYPE syrepid,
         lv_method_name   TYPE string,
         lv_clsname       TYPE seoclsname,
-        lv_badi_cls      TYPE seoclsname.
-
-  DATA: lt_badi_impl     TYPE TABLE OF sxc_attr,
-        ls_badi_impl     TYPE sxc_attr.
+        lv_badi_cls      TYPE seoclsname,
+        lv_badi_imp      TYPE char20.
 
   CLEAR: et_source_code[], et_includes[].
 
@@ -426,30 +424,22 @@ FUNCTION z_mcp_get_source_code.
       ev_object_type = 'BADI'.
       CONCATENATE 'BAdI:' iv_object_name INTO ev_title SEPARATED BY space.
 
-      " For classic BADIs, get the implementing class
-      IF iv_category = 'BADI'.
-        SELECT *
-          FROM sxc_attr
-          INTO TABLE lt_badi_impl
-          WHERE name = iv_object_name.
-
-        LOOP AT lt_badi_impl INTO ls_badi_impl.
-          lv_badi_cls = ls_badi_impl-imp_name.
-          CONCATENATE lv_badi_cls '==============CCIMP' INTO lv_badi_class_def.
-          CLEAR lt_source.
-          READ REPORT lv_badi_class_def INTO lt_source.
-          IF sy-subrc = 0.
-            lv_line_num = 0.
-            LOOP AT lt_source INTO lv_line.
-              lv_line_num = lv_line_num + 1.
-              CLEAR ls_source.
-              ls_source-line_number = lv_line_num.
-              ls_source-source_line = lv_line.
-              ls_source-include_name = lv_badi_cls.
-              CONCATENATE 'BADI_CLASS:' lv_badi_cls INTO ls_source-section.
-              APPEND ls_source TO et_source_code.
-            ENDLOOP.
-          ENDIF.
+      " Try reading the object as a class implementation include
+      " (works when the object name is the implementing class)
+      lv_badi_cls = iv_object_name.
+      CONCATENATE lv_badi_cls '==============CCIMP' INTO lv_badi_class_def.
+      CLEAR lt_source.
+      READ REPORT lv_badi_class_def INTO lt_source.
+      IF sy-subrc = 0.
+        lv_line_num = 0.
+        LOOP AT lt_source INTO lv_line.
+          lv_line_num = lv_line_num + 1.
+          CLEAR ls_source.
+          ls_source-line_number = lv_line_num.
+          ls_source-source_line = lv_line.
+          ls_source-include_name = lv_badi_cls.
+          ls_source-section = 'BADI_CLASS'.
+          APPEND ls_source TO et_source_code.
         ENDLOOP.
       ENDIF.
 
