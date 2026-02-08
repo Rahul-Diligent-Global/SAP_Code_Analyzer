@@ -5,7 +5,7 @@ sap.ui.define([
 ], function (UIComponent, JSONModel, Device) {
     "use strict";
 
-    return UIComponent.extend("com.company.abapanalyzer.Component", {
+    return UIComponent.extend("com.sap.codeinsight.Component", {
 
         metadata: {
             manifest: "json"

@@ -1,4 +1,4 @@
-# SAP BTP CAPM Solution: ABAP Code Analyzer & BRD Document Generator
+# SAP Code Insight: AI-Powered ABAP Code Analysis & BRD Document Generator
 
 ## Architecture Overview
 

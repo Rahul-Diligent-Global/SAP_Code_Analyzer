@@ -1,7 +1,7 @@
 using abap.analyzer from '../db/schema';
 
 /**
- * Main service for ABAP Code Analyzer
+ * Main service for SAP Code Insight
  * Exposes entities and actions for the Fiori UI
  */
 service CodeAnalyzerService @(path: '/api/analyzer') {

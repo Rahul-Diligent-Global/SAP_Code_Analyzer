@@ -2,7 +2,7 @@ sap.ui.define([
     "sap/ui/core/mvc/Controller"
 ], function (Controller) {
     "use strict";
-    return Controller.extend("com.company.abapanalyzer.controller.App", {
+    return Controller.extend("com.sap.codeinsight.controller.App", {
         onInit: function () { }
     });
 });

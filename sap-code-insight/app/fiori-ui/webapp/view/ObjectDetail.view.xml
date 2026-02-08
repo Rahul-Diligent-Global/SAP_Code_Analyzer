@@ -6,7 +6,7 @@
     xmlns:f="sap.f"
     xmlns:ce="sap.ui.codeeditor"
     xmlns:unified="sap.ui.unified"
-    controllerName="com.company.abapanalyzer.controller.ObjectDetail">
+    controllerName="com.sap.codeinsight.controller.ObjectDetail">
 
     <Page id="objectDetailPage"
           title="Object Details"

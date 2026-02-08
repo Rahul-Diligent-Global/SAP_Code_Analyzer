@@ -1,7 +1,7 @@
 {
-    "xsappname": "abap-code-analyzer",
+    "xsappname": "sap-code-insight",
     "tenant-mode": "shared",
-    "description": "ABAP Code Analyzer - Multi-Tenant SaaS",
+    "description": "SAP Code Insight - Multi-Tenant SaaS",
     "scopes": [
         {
             "name": "$XSAPPNAME.Viewer",
@@ -63,17 +63,17 @@
     ],
     "role-collections": [
         {
-            "name": "ABAP_Analyzer_Viewer",
+            "name": "CodeInsight_Viewer",
             "description": "View objects",
             "role-template-references": ["$XSAPPNAME.Viewer"]
         },
         {
-            "name": "ABAP_Analyzer_Developer",
+            "name": "CodeInsight_Developer",
             "description": "Analyze and generate docs",
             "role-template-references": ["$XSAPPNAME.Developer"]
         },
         {
-            "name": "ABAP_Analyzer_TenantAdmin",
+            "name": "CodeInsight_TenantAdmin",
             "description": "Tenant administration",
             "role-template-references": ["$XSAPPNAME.TenantAdmin"]
         }

@@ -1,7 +1,7 @@
 {
-    "xsappname": "abap-code-analyzer",
+    "xsappname": "sap-code-insight",
     "tenant-mode": "dedicated",
-    "description": "ABAP Code Analyzer Security Configuration",
+    "description": "SAP Code Insight Security Configuration",
     "scopes": [
         {
             "name": "$XSAPPNAME.Viewer",
@@ -26,12 +26,12 @@
     ],
     "role-collections": [
         {
-            "name": "ABAPAnalyzer_Viewer",
+            "name": "CodeInsight_Viewer",
             "description": "View ABAP objects",
             "role-template-references": ["$XSAPPNAME.Viewer"]
         },
         {
-            "name": "ABAPAnalyzer_Admin",
+            "name": "CodeInsight_Admin",
             "description": "Full access including document generation",
             "role-template-references": ["$XSAPPNAME.Admin"]
         }

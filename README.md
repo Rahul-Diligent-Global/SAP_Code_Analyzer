@@ -1,2 +1,2 @@
-# SAP_Code_Analyzer
-Analyze SAP Code and Generate Document
+# SAP Code Insight
+AI-Powered ABAP Code Analysis & BRD Document Generator on SAP BTP

@@ -1,6 +1,6 @@
 # Security Architecture & SaaS Multi-Tenancy Guide
 
-## ABAP Code Analyzer — Enterprise SaaS Solution
+## SAP Code Insight — Enterprise SaaS Solution
 
 ---
 

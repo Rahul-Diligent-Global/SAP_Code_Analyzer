@@ -17,7 +17,7 @@ sap.ui.define([
              Dialog, Button, Label, Select, TextArea, CheckBox, VBox, Item, Fragment) {
     "use strict";
 
-    return Controller.extend("com.company.abapanalyzer.controller.ObjectDetail", {
+    return Controller.extend("com.sap.codeinsight.controller.ObjectDetail", {
 
         onInit: function () {
             this._oViewModel = this.getOwnerComponent().getModel("viewModel");

@@ -8,7 +8,7 @@ sap.ui.define([
 ], function (Controller, Filter, FilterOperator, Sorter, MessageBox, MessageToast) {
     "use strict";
 
-    return Controller.extend("com.company.abapanalyzer.controller.ObjectList", {
+    return Controller.extend("com.sap.codeinsight.controller.ObjectList", {
 
         onInit: function () {
             this._oViewModel = this.getOwnerComponent().getModel("viewModel");

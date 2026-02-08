@@ -1,7 +1,7 @@
 {
-  "name": "abap-code-analyzer",
+  "name": "sap-code-insight",
   "version": "1.0.0",
-  "description": "SAP BTP CAP Application - ABAP Code Analyzer & BRD Generator with Claude AI",
+  "description": "SAP Code Insight - AI-Powered ABAP Code Analysis & BRD Document Generator",
   "repository": "",
   "license": "ISC",
   "dependencies": {

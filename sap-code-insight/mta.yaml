@@ -1,7 +1,7 @@
 _schema-version: '3.1'
-ID: abap-code-analyzer
+ID: sap-code-insight
 version: 1.0.0
-description: ABAP Code Analyzer & BRD Generator with Claude AI
+description: SAP Code Insight - AI-Powered ABAP Code Analysis & BRD Generator
 
 parameters:
   enable-parallel-deployments: true
@@ -10,7 +10,7 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # CAP Backend Service
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-srv
+  - name: codeinsight-srv
     type: nodejs
     path: gen/srv
     parameters:
@@ -23,9 +23,9 @@ modules:
       CLAUDE_MAX_TOKENS: "8192"
       SAP_DESTINATION: "SAP_ONPREM_RFC"
     requires:
-      - name: abap-analyzer-auth
-      - name: abap-analyzer-db
-      - name: abap-analyzer-destination
+      - name: codeinsight-auth
+      - name: codeinsight-db
+      - name: codeinsight-destination
       - name: claude-api
     provides:
       - name: srv-api
@@ -35,14 +35,14 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # Fiori UI (App Router)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-app
+  - name: codeinsight-app
     type: approuter.nodejs
     path: app/
     parameters:
       memory: 256M
       disk-quota: 512M
     requires:
-      - name: abap-analyzer-auth
+      - name: codeinsight-auth
       - name: srv-api
         group: destinations
         properties:
@@ -53,19 +53,19 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # HANA DB Deployer (optional - for caching)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-db-deployer
+  - name: codeinsight-db-deployer
     type: hdb
     path: gen/db
     parameters:
       buildpack: nodejs_buildpack
     requires:
-      - name: abap-analyzer-db
+      - name: codeinsight-db
 
 resources:
   # ═══════════════════════════════════════════════════════════
   # XSUAA Service (Authentication)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-auth
+  - name: codeinsight-auth
     type: org.cloudfoundry.managed-service
     parameters:
       service: xsuaa
@@ -75,7 +75,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # HANA Cloud (Database)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-db
+  - name: codeinsight-db
     type: com.sap.xs.hdi-container
     parameters:
       service: hana
@@ -84,7 +84,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Destination Service (SAP On-Prem connectivity)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-destination
+  - name: codeinsight-destination
     type: org.cloudfoundry.managed-service
     parameters:
       service: destination

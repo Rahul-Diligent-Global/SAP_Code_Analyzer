@@ -1,9 +1,9 @@
 {
     "_version": "1.59.0",
     "sap.app": {
-        "id": "com.company.abapanalyzer",
+        "id": "com.sap.codeinsight",
         "type": "application",
-        "title": "ABAP Code Analyzer",
+        "title": "SAP Code Insight",
         "description": "Analyze SAP ABAP Custom Objects & Generate BRD Documents",
         "applicationVersion": { "version": "1.0.0" },
         "dataSources": {
@@ -30,7 +30,7 @@
     "sap.ui5": {
         "flexEnabled": true,
         "rootView": {
-            "viewName": "com.company.abapanalyzer.view.App",
+            "viewName": "com.sap.codeinsight.view.App",
             "type": "XML",
             "async": true,
             "id": "app"
@@ -72,7 +72,7 @@
             "config": {
                 "routerClass": "sap.m.routing.Router",
                 "viewType": "XML",
-                "viewPath": "com.company.abapanalyzer.view",
+                "viewPath": "com.sap.codeinsight.view",
                 "controlId": "appControl",
                 "controlAggregation": "pages",
                 "async": true

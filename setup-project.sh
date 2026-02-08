@@ -1,27 +1,27 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# ABAP Code Analyzer - Complete Project Setup Script
+# SAP Code Insight - Complete Project Setup Script
 # Run this in your Git repo root directory
 # ═══════════════════════════════════════════════════════════════
 
 set -e
-echo "🚀 Setting up ABAP Code Analyzer project..."
+echo "🚀 Setting up SAP Code Insight project..."
 
 # Create complete directory structure
 mkdir -p on-prem-abap
 mkdir -p docs
-mkdir -p btp-cap-app/db
-mkdir -p btp-cap-app/srv/lib/security
-mkdir -p btp-cap-app/srv/lib/multitenancy
-mkdir -p btp-cap-app/srv/lib/onboarding
-mkdir -p btp-cap-app/app/fiori-ui/webapp/view
-mkdir -p btp-cap-app/app/fiori-ui/webapp/controller
-mkdir -p btp-cap-app/app/fiori-ui/webapp/i18n
+mkdir -p sap-code-insight/db
+mkdir -p sap-code-insight/srv/lib/security
+mkdir -p sap-code-insight/srv/lib/multitenancy
+mkdir -p sap-code-insight/srv/lib/onboarding
+mkdir -p sap-code-insight/app/fiori-ui/webapp/view
+mkdir -p sap-code-insight/app/fiori-ui/webapp/controller
+mkdir -p sap-code-insight/app/fiori-ui/webapp/i18n
 
 echo "📁 Directory structure created"
 
-# ─── File: btp-cap-app/.cdsrc.json ───
-cat > "btp-cap-app/.cdsrc.json" << 'FILEOF_6087cf77'
+# ─── File: sap-code-insight/.cdsrc.json ───
+cat > "sap-code-insight/.cdsrc.json" << 'FILEOF_6087cf77'
 {
     "requires": {
         "SAP_ONPREM": {
@@ -51,8 +51,8 @@ cat > "btp-cap-app/.cdsrc.json" << 'FILEOF_6087cf77'
 
 FILEOF_6087cf77
 
-# ─── File: btp-cap-app/.env.template ───
-cat > "btp-cap-app/.env.template" << 'FILEOF_4c7ffc06'
+# ─── File: sap-code-insight/.env.template ───
+cat > "sap-code-insight/.env.template" << 'FILEOF_4c7ffc06'
 # ═══════════════════════════════════════════════════════════
 # Local Development Environment Variables
 # Copy this to .env and fill in your values
@@ -75,8 +75,8 @@ CDS_ENV=development
 
 FILEOF_4c7ffc06
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/Component.js ───
-cat > "btp-cap-app/app/fiori-ui/webapp/Component.js" << 'FILEOF_e0479c81'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/Component.js ───
+cat > "sap-code-insight/app/fiori-ui/webapp/Component.js" << 'FILEOF_e0479c81'
 sap.ui.define([
     "sap/ui/core/UIComponent",
     "sap/ui/model/json/JSONModel",
@@ -84,7 +84,7 @@ sap.ui.define([
 ], function (UIComponent, JSONModel, Device) {
     "use strict";
 
-    return UIComponent.extend("com.company.abapanalyzer.Component", {
+    return UIComponent.extend("com.sap.codeinsight.Component", {
 
         metadata: {
             manifest: "json"
@@ -131,21 +131,21 @@ sap.ui.define([
 
 FILEOF_e0479c81
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/controller/App.controller.js ───
-cat > "btp-cap-app/app/fiori-ui/webapp/controller/App.controller.js" << 'FILEOF_f67b5e62'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/controller/App.controller.js ───
+cat > "sap-code-insight/app/fiori-ui/webapp/controller/App.controller.js" << 'FILEOF_f67b5e62'
 sap.ui.define([
     "sap/ui/core/mvc/Controller"
 ], function (Controller) {
     "use strict";
-    return Controller.extend("com.company.abapanalyzer.controller.App", {
+    return Controller.extend("com.sap.codeinsight.controller.App", {
         onInit: function () { }
     });
 });
 
 FILEOF_f67b5e62
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/controller/ObjectDetail.controller.js ───
-cat > "btp-cap-app/app/fiori-ui/webapp/controller/ObjectDetail.controller.js" << 'FILEOF_2082ed7c'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/controller/ObjectDetail.controller.js ───
+cat > "sap-code-insight/app/fiori-ui/webapp/controller/ObjectDetail.controller.js" << 'FILEOF_2082ed7c'
 sap.ui.define([
     "sap/ui/core/mvc/Controller",
     "sap/ui/model/json/JSONModel",
@@ -165,7 +165,7 @@ sap.ui.define([
              Dialog, Button, Label, Select, TextArea, CheckBox, VBox, Item, Fragment) {
     "use strict";
 
-    return Controller.extend("com.company.abapanalyzer.controller.ObjectDetail", {
+    return Controller.extend("com.sap.codeinsight.controller.ObjectDetail", {
 
         onInit: function () {
             this._oViewModel = this.getOwnerComponent().getModel("viewModel");
@@ -622,8 +622,8 @@ sap.ui.define([
 
 FILEOF_2082ed7c
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/controller/ObjectList.controller.js ───
-cat > "btp-cap-app/app/fiori-ui/webapp/controller/ObjectList.controller.js" << 'FILEOF_f938ce98'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/controller/ObjectList.controller.js ───
+cat > "sap-code-insight/app/fiori-ui/webapp/controller/ObjectList.controller.js" << 'FILEOF_f938ce98'
 sap.ui.define([
     "sap/ui/core/mvc/Controller",
     "sap/ui/model/Filter",
@@ -634,7 +634,7 @@ sap.ui.define([
 ], function (Controller, Filter, FilterOperator, Sorter, MessageBox, MessageToast) {
     "use strict";
 
-    return Controller.extend("com.company.abapanalyzer.controller.ObjectList", {
+    return Controller.extend("com.sap.codeinsight.controller.ObjectList", {
 
         onInit: function () {
             this._oViewModel = this.getOwnerComponent().getModel("viewModel");
@@ -785,10 +785,10 @@ sap.ui.define([
 
 FILEOF_f938ce98
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/i18n/i18n.properties ───
-cat > "btp-cap-app/app/fiori-ui/webapp/i18n/i18n.properties" << 'FILEOF_41fca0ba'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/i18n/i18n.properties ───
+cat > "sap-code-insight/app/fiori-ui/webapp/i18n/i18n.properties" << 'FILEOF_41fca0ba'
 # App Info
-appTitle=ABAP Code Analyzer
+appTitle=SAP Code Insight
 appDescription=Analyze SAP ABAP Custom Objects & Generate BRD Documents with AI
 
 # Object List
@@ -830,19 +830,19 @@ codeCopied=Code copied to clipboard!
 
 FILEOF_41fca0ba
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/index.html ───
-cat > "btp-cap-app/app/fiori-ui/webapp/index.html" << 'FILEOF_7fb9c1d2'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/index.html ───
+cat > "sap-code-insight/app/fiori-ui/webapp/index.html" << 'FILEOF_7fb9c1d2'
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ABAP Code Analyzer</title>
+    <title>SAP Code Insight</title>
 
     <script id="sap-ui-bootstrap"
             src="https://sapui5.hana.ondemand.com/resources/sap-ui-core.js"
             data-sap-ui-theme="sap_horizon"
-            data-sap-ui-resourceroots='{"com.company.abapanalyzer": "./"}'
+            data-sap-ui-resourceroots='{"com.sap.codeinsight": "./"}'
             data-sap-ui-compatVersion="edge"
             data-sap-ui-async="true"
             data-sap-ui-frameOptions="allow"
@@ -858,9 +858,9 @@ cat > "btp-cap-app/app/fiori-ui/webapp/index.html" << 'FILEOF_7fb9c1d2'
 </head>
 <body class="sapUiBody" id="content">
     <div data-sap-ui-component
-         data-name="com.company.abapanalyzer"
+         data-name="com.sap.codeinsight"
          data-id="container"
-         data-settings='{"id": "com.company.abapanalyzer"}'
+         data-settings='{"id": "com.sap.codeinsight"}'
          data-handle-validation="true">
     </div>
 </body>
@@ -868,14 +868,14 @@ cat > "btp-cap-app/app/fiori-ui/webapp/index.html" << 'FILEOF_7fb9c1d2'
 
 FILEOF_7fb9c1d2
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/manifest.json ───
-cat > "btp-cap-app/app/fiori-ui/webapp/manifest.json" << 'FILEOF_ffa991e0'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/manifest.json ───
+cat > "sap-code-insight/app/fiori-ui/webapp/manifest.json" << 'FILEOF_ffa991e0'
 {
     "_version": "1.59.0",
     "sap.app": {
-        "id": "com.company.abapanalyzer",
+        "id": "com.sap.codeinsight",
         "type": "application",
-        "title": "ABAP Code Analyzer",
+        "title": "SAP Code Insight",
         "description": "Analyze SAP ABAP Custom Objects & Generate BRD Documents",
         "applicationVersion": { "version": "1.0.0" },
         "dataSources": {
@@ -902,7 +902,7 @@ cat > "btp-cap-app/app/fiori-ui/webapp/manifest.json" << 'FILEOF_ffa991e0'
     "sap.ui5": {
         "flexEnabled": true,
         "rootView": {
-            "viewName": "com.company.abapanalyzer.view.App",
+            "viewName": "com.sap.codeinsight.view.App",
             "type": "XML",
             "async": true,
             "id": "app"
@@ -944,7 +944,7 @@ cat > "btp-cap-app/app/fiori-ui/webapp/manifest.json" << 'FILEOF_ffa991e0'
             "config": {
                 "routerClass": "sap.m.routing.Router",
                 "viewType": "XML",
-                "viewPath": "com.company.abapanalyzer.view",
+                "viewPath": "com.sap.codeinsight.view",
                 "controlId": "appControl",
                 "controlAggregation": "pages",
                 "async": true
@@ -981,13 +981,13 @@ cat > "btp-cap-app/app/fiori-ui/webapp/manifest.json" << 'FILEOF_ffa991e0'
 
 FILEOF_ffa991e0
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/view/App.view.xml ───
-cat > "btp-cap-app/app/fiori-ui/webapp/view/App.view.xml" << 'FILEOF_b9974239'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/view/App.view.xml ───
+cat > "sap-code-insight/app/fiori-ui/webapp/view/App.view.xml" << 'FILEOF_b9974239'
 <mvc:View
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     displayBlock="true"
-    controllerName="com.company.abapanalyzer.controller.App">
+    controllerName="com.sap.codeinsight.controller.App">
     <App id="appControl"
          class="{= ${device>/support/touch} ? 'sapUiSizeCozy' : 'sapUiSizeCompact'}"
          busy="{viewModel>/busy}"
@@ -997,8 +997,8 @@ cat > "btp-cap-app/app/fiori-ui/webapp/view/App.view.xml" << 'FILEOF_b9974239'
 
 FILEOF_b9974239
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/view/ObjectDetail.view.xml ───
-cat > "btp-cap-app/app/fiori-ui/webapp/view/ObjectDetail.view.xml" << 'FILEOF_9435d329'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/view/ObjectDetail.view.xml ───
+cat > "sap-code-insight/app/fiori-ui/webapp/view/ObjectDetail.view.xml" << 'FILEOF_9435d329'
 <mvc:View
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
@@ -1007,7 +1007,7 @@ cat > "btp-cap-app/app/fiori-ui/webapp/view/ObjectDetail.view.xml" << 'FILEOF_94
     xmlns:f="sap.f"
     xmlns:ce="sap.ui.codeeditor"
     xmlns:unified="sap.ui.unified"
-    controllerName="com.company.abapanalyzer.controller.ObjectDetail">
+    controllerName="com.sap.codeinsight.controller.ObjectDetail">
 
     <Page id="objectDetailPage"
           title="Object Details"
@@ -1159,15 +1159,15 @@ cat > "btp-cap-app/app/fiori-ui/webapp/view/ObjectDetail.view.xml" << 'FILEOF_94
 
 FILEOF_9435d329
 
-# ─── File: btp-cap-app/app/fiori-ui/webapp/view/ObjectList.view.xml ───
-cat > "btp-cap-app/app/fiori-ui/webapp/view/ObjectList.view.xml" << 'FILEOF_bc9043ab'
+# ─── File: sap-code-insight/app/fiori-ui/webapp/view/ObjectList.view.xml ───
+cat > "sap-code-insight/app/fiori-ui/webapp/view/ObjectList.view.xml" << 'FILEOF_bc9043ab'
 <mvc:View
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
     xmlns:f="sap.f"
     xmlns:fb="sap.ui.comp.filterbar"
-    controllerName="com.company.abapanalyzer.controller.ObjectList">
+    controllerName="com.sap.codeinsight.controller.ObjectList">
 
     <Page id="objectListPage"
           title="{i18n>appTitle}"
@@ -1178,7 +1178,7 @@ cat > "btp-cap-app/app/fiori-ui/webapp/view/ObjectList.view.xml" << 'FILEOF_bc90
         <customHeader>
             <Bar>
                 <contentLeft>
-                    <Title text="ABAP Code Analyzer" level="H3"/>
+                    <Title text="SAP Code Insight" level="H3"/>
                 </contentLeft>
                 <contentMiddle>
                     <SearchField
@@ -1314,8 +1314,8 @@ cat > "btp-cap-app/app/fiori-ui/webapp/view/ObjectList.view.xml" << 'FILEOF_bc90
 
 FILEOF_bc9043ab
 
-# ─── File: btp-cap-app/app/xs-app.json ───
-cat > "btp-cap-app/app/xs-app.json" << 'FILEOF_dd91eb1e'
+# ─── File: sap-code-insight/app/xs-app.json ───
+cat > "sap-code-insight/app/xs-app.json" << 'FILEOF_dd91eb1e'
 {
     "welcomeFile": "/fiori-ui/webapp/index.html",
     "authenticationMethod": "route",
@@ -1338,8 +1338,8 @@ cat > "btp-cap-app/app/xs-app.json" << 'FILEOF_dd91eb1e'
 
 FILEOF_dd91eb1e
 
-# ─── File: btp-cap-app/db/schema-multitenant.cds ───
-cat > "btp-cap-app/db/schema-multitenant.cds" << 'FILEOF_4f17ee2d'
+# ─── File: sap-code-insight/db/schema-multitenant.cds ───
+cat > "sap-code-insight/db/schema-multitenant.cds" << 'FILEOF_4f17ee2d'
 namespace abap.analyzer;
 
 using { cuid, managed } from '@sap/cds/common';
@@ -1545,8 +1545,8 @@ entity SubscriptionPlans : cuid, managed {
 
 FILEOF_4f17ee2d
 
-# ─── File: btp-cap-app/db/schema.cds ───
-cat > "btp-cap-app/db/schema.cds" << 'FILEOF_be206168'
+# ─── File: sap-code-insight/db/schema.cds ───
+cat > "sap-code-insight/db/schema.cds" << 'FILEOF_be206168'
 namespace abap.analyzer;
 
 using { cuid, managed } from '@sap/cds/common';
@@ -1601,12 +1601,12 @@ entity DocumentTemplates : cuid, managed {
 
 FILEOF_be206168
 
-# ─── File: btp-cap-app/mta-saas.yaml ───
-cat > "btp-cap-app/mta-saas.yaml" << 'FILEOF_95823ca0'
+# ─── File: sap-code-insight/mta-saas.yaml ───
+cat > "sap-code-insight/mta-saas.yaml" << 'FILEOF_95823ca0'
 _schema-version: '3.1'
-ID: abap-code-analyzer-saas
+ID: sap-code-insight-saas
 version: 1.0.0
-description: ABAP Code Analyzer SaaS - Multi-Tenant with Security
+description: SAP Code Insight SaaS - Multi-Tenant with Security
 
 parameters:
   enable-parallel-deployments: true
@@ -1615,7 +1615,7 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # CAP Backend Service (Multi-Tenant)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-srv
+  - name: codeinsight-srv
     type: nodejs
     path: gen/srv
     parameters:
@@ -1630,14 +1630,14 @@ modules:
       CLAUDE_API_URL: "https://api.anthropic.com/v1/messages"
       APP_DOMAIN: "${default-domain}"
     requires:
-      - name: abap-analyzer-auth
-      - name: abap-analyzer-mtx
-      - name: abap-analyzer-registry
-      - name: abap-analyzer-sm
-      - name: abap-analyzer-destination
-      - name: abap-analyzer-connectivity
-      - name: abap-analyzer-credstore
-      - name: abap-analyzer-auditlog
+      - name: codeinsight-auth
+      - name: codeinsight-mtx
+      - name: codeinsight-registry
+      - name: codeinsight-sm
+      - name: codeinsight-destination
+      - name: codeinsight-connectivity
+      - name: codeinsight-credstore
+      - name: codeinsight-auditlog
     provides:
       - name: srv-api
         properties:
@@ -1647,16 +1647,16 @@ modules:
   # MTX Sidecar (Multitenancy Extension)
   # Handles tenant DB schema provisioning
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-mtx
+  - name: codeinsight-mtx
     type: nodejs
     path: gen/mtx/sidecar
     parameters:
       buildpack: nodejs_buildpack
       memory: 256M
     requires:
-      - name: abap-analyzer-auth
-      - name: abap-analyzer-sm
-      - name: abap-analyzer-registry
+      - name: codeinsight-auth
+      - name: codeinsight-sm
+      - name: codeinsight-registry
     provides:
       - name: mtx-api
         properties:
@@ -1665,7 +1665,7 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # App Router (Tenant-Aware, handles subdomain routing)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-app
+  - name: codeinsight-app
     type: approuter.nodejs
     path: app/
     parameters:
@@ -1675,7 +1675,7 @@ modules:
     properties:
       TENANT_HOST_PATTERN: "^(.*)-${default-uri}"
     requires:
-      - name: abap-analyzer-auth
+      - name: codeinsight-auth
       - name: srv-api
         group: destinations
         properties:
@@ -1692,19 +1692,19 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # DB Deployer (Schema for provider account)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-db-deployer
+  - name: codeinsight-db-deployer
     type: hdb
     path: gen/db
     parameters:
       buildpack: nodejs_buildpack
     requires:
-      - name: abap-analyzer-sm
+      - name: codeinsight-sm
 
 resources:
   # ═══════════════════════════════════════════════════════════
   # XSUAA (Multi-Tenant Auth)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-auth
+  - name: codeinsight-auth
     type: org.cloudfoundry.managed-service
     parameters:
       service: xsuaa
@@ -1714,15 +1714,15 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # SaaS Provisioning Service (Subscription Management)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-registry
+  - name: codeinsight-registry
     type: org.cloudfoundry.managed-service
     parameters:
       service: saas-registry
       service-plan: application
       config:
-        xsappname: abap-code-analyzer
-        appName: abap-code-analyzer
-        displayName: "ABAP Code Analyzer"
+        xsappname: sap-code-insight
+        appName: sap-code-insight
+        displayName: "SAP Code Insight"
         description: "AI-Powered ABAP Code Analysis & BRD Document Generator"
         category: "SAP BTP Applications"
         appUrls:
@@ -1734,7 +1734,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Service Manager (HDI Container per Tenant)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-sm
+  - name: codeinsight-sm
     type: org.cloudfoundry.managed-service
     parameters:
       service: service-manager
@@ -1743,7 +1743,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Destination Service (Per-Tenant SAP connections)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-destination
+  - name: codeinsight-destination
     type: org.cloudfoundry.managed-service
     parameters:
       service: destination
@@ -1752,7 +1752,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Connectivity Service (Cloud Connector)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-connectivity
+  - name: codeinsight-connectivity
     type: org.cloudfoundry.managed-service
     parameters:
       service: connectivity
@@ -1761,7 +1761,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Credential Store (Encryption Keys & API Keys)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-credstore
+  - name: codeinsight-credstore
     type: org.cloudfoundry.managed-service
     parameters:
       service: credstore
@@ -1773,7 +1773,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Audit Log Service (Compliance)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-auditlog
+  - name: codeinsight-auditlog
     type: org.cloudfoundry.managed-service
     parameters:
       service: auditlog
@@ -1781,12 +1781,12 @@ resources:
 
 FILEOF_95823ca0
 
-# ─── File: btp-cap-app/mta.yaml ───
-cat > "btp-cap-app/mta.yaml" << 'FILEOF_a8944f43'
+# ─── File: sap-code-insight/mta.yaml ───
+cat > "sap-code-insight/mta.yaml" << 'FILEOF_a8944f43'
 _schema-version: '3.1'
-ID: abap-code-analyzer
+ID: sap-code-insight
 version: 1.0.0
-description: ABAP Code Analyzer & BRD Generator with Claude AI
+description: SAP Code Insight & BRD Generator with Claude AI
 
 parameters:
   enable-parallel-deployments: true
@@ -1795,7 +1795,7 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # CAP Backend Service
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-srv
+  - name: codeinsight-srv
     type: nodejs
     path: gen/srv
     parameters:
@@ -1808,9 +1808,9 @@ modules:
       CLAUDE_MAX_TOKENS: "8192"
       SAP_DESTINATION: "SAP_ONPREM_RFC"
     requires:
-      - name: abap-analyzer-auth
-      - name: abap-analyzer-db
-      - name: abap-analyzer-destination
+      - name: codeinsight-auth
+      - name: codeinsight-db
+      - name: codeinsight-destination
       - name: claude-api
     provides:
       - name: srv-api
@@ -1820,14 +1820,14 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # Fiori UI (App Router)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-app
+  - name: codeinsight-app
     type: approuter.nodejs
     path: app/
     parameters:
       memory: 256M
       disk-quota: 512M
     requires:
-      - name: abap-analyzer-auth
+      - name: codeinsight-auth
       - name: srv-api
         group: destinations
         properties:
@@ -1838,19 +1838,19 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # HANA DB Deployer (optional - for caching)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-db-deployer
+  - name: codeinsight-db-deployer
     type: hdb
     path: gen/db
     parameters:
       buildpack: nodejs_buildpack
     requires:
-      - name: abap-analyzer-db
+      - name: codeinsight-db
 
 resources:
   # ═══════════════════════════════════════════════════════════
   # XSUAA Service (Authentication)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-auth
+  - name: codeinsight-auth
     type: org.cloudfoundry.managed-service
     parameters:
       service: xsuaa
@@ -1860,7 +1860,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # HANA Cloud (Database)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-db
+  - name: codeinsight-db
     type: com.sap.xs.hdi-container
     parameters:
       service: hana
@@ -1869,7 +1869,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Destination Service (SAP On-Prem connectivity)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-destination
+  - name: codeinsight-destination
     type: org.cloudfoundry.managed-service
     parameters:
       service: destination
@@ -1886,12 +1886,12 @@ resources:
 
 FILEOF_a8944f43
 
-# ─── File: btp-cap-app/package.json ───
-cat > "btp-cap-app/package.json" << 'FILEOF_505820b6'
+# ─── File: sap-code-insight/package.json ───
+cat > "sap-code-insight/package.json" << 'FILEOF_505820b6'
 {
-  "name": "abap-code-analyzer",
+  "name": "sap-code-insight",
   "version": "1.0.0",
-  "description": "SAP BTP CAP Application - ABAP Code Analyzer & BRD Generator with Claude AI",
+  "description": "SAP BTP CAP Application - SAP Code Insight & BRD Generator with Claude AI",
   "repository": "",
   "license": "ISC",
   "dependencies": {
@@ -1950,8 +1950,8 @@ cat > "btp-cap-app/package.json" << 'FILEOF_505820b6'
 
 FILEOF_505820b6
 
-# ─── File: btp-cap-app/srv/code-analyzer-service-secure.js ───
-cat > "btp-cap-app/srv/code-analyzer-service-secure.js" << 'FILEOF_4ba73d2b'
+# ─── File: sap-code-insight/srv/code-analyzer-service-secure.js ───
+cat > "sap-code-insight/srv/code-analyzer-service-secure.js" << 'FILEOF_4ba73d2b'
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * CODE ANALYZER SERVICE (SECURITY-ENHANCED, MULTI-TENANT)
@@ -2378,12 +2378,12 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
 
 FILEOF_4ba73d2b
 
-# ─── File: btp-cap-app/srv/code-analyzer-service.cds ───
-cat > "btp-cap-app/srv/code-analyzer-service.cds" << 'FILEOF_387bd9f0'
+# ─── File: sap-code-insight/srv/code-analyzer-service.cds ───
+cat > "sap-code-insight/srv/code-analyzer-service.cds" << 'FILEOF_387bd9f0'
 using abap.analyzer from '../db/schema';
 
 /**
- * Main service for ABAP Code Analyzer
+ * Main service for SAP Code Insight
  * Exposes entities and actions for the Fiori UI
  */
 service CodeAnalyzerService @(path: '/api/analyzer') {
@@ -2502,8 +2502,8 @@ service CodeAnalyzerService @(path: '/api/analyzer') {
 
 FILEOF_387bd9f0
 
-# ─── File: btp-cap-app/srv/code-analyzer-service.js ───
-cat > "btp-cap-app/srv/code-analyzer-service.js" << 'FILEOF_7aba6e87'
+# ─── File: sap-code-insight/srv/code-analyzer-service.js ───
+cat > "sap-code-insight/srv/code-analyzer-service.js" << 'FILEOF_7aba6e87'
 const cds = require('@sap/cds');
 const LOG = cds.log('code-analyzer');
 
@@ -2800,8 +2800,8 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
 
 FILEOF_7aba6e87
 
-# ─── File: btp-cap-app/srv/lib/claude-analyzer.js ───
-cat > "btp-cap-app/srv/lib/claude-analyzer.js" << 'FILEOF_e6af2698'
+# ─── File: sap-code-insight/srv/lib/claude-analyzer.js ───
+cat > "sap-code-insight/srv/lib/claude-analyzer.js" << 'FILEOF_e6af2698'
 /**
  * Claude AI Analyzer
  * Sends ABAP source code to Claude API (Anthropic)
@@ -3200,8 +3200,8 @@ module.exports = ClaudeAnalyzer;
 
 FILEOF_e6af2698
 
-# ─── File: btp-cap-app/srv/lib/document-generator.js ───
-cat > "btp-cap-app/srv/lib/document-generator.js" << 'FILEOF_9a21ad9e'
+# ─── File: sap-code-insight/srv/lib/document-generator.js ───
+cat > "sap-code-insight/srv/lib/document-generator.js" << 'FILEOF_9a21ad9e'
 /**
  * Document Generator
  * Creates professionally formatted DOCX and PDF documents
@@ -3882,8 +3882,8 @@ module.exports = DocumentGenerator;
 
 FILEOF_9a21ad9e
 
-# ─── File: btp-cap-app/srv/lib/multitenancy/tenant-provisioning.js ───
-cat > "btp-cap-app/srv/lib/multitenancy/tenant-provisioning.js" << 'FILEOF_6044d81d'
+# ─── File: sap-code-insight/srv/lib/multitenancy/tenant-provisioning.js ───
+cat > "sap-code-insight/srv/lib/multitenancy/tenant-provisioning.js" << 'FILEOF_6044d81d'
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * TENANT PROVISIONING HANDLER
@@ -4121,8 +4121,8 @@ module.exports = TenantProvisioning;
 
 FILEOF_6044d81d
 
-# ─── File: btp-cap-app/srv/lib/sap-connector.js ───
-cat > "btp-cap-app/srv/lib/sap-connector.js" << 'FILEOF_59e46831'
+# ─── File: sap-code-insight/srv/lib/sap-connector.js ───
+cat > "sap-code-insight/srv/lib/sap-connector.js" << 'FILEOF_59e46831'
 /**
  * SAP On-Premise Connector
  * Handles RFC calls to SAP system via Cloud Connector + BTP Destination
@@ -4382,8 +4382,8 @@ module.exports = SAPConnector;
 
 FILEOF_59e46831
 
-# ─── File: btp-cap-app/srv/lib/security/audit-logger.js ───
-cat > "btp-cap-app/srv/lib/security/audit-logger.js" << 'FILEOF_14cbfca0'
+# ─── File: sap-code-insight/srv/lib/security/audit-logger.js ───
+cat > "sap-code-insight/srv/lib/security/audit-logger.js" << 'FILEOF_14cbfca0'
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * SECURITY AUDIT LOGGER
@@ -4606,8 +4606,8 @@ module.exports = SecurityAuditLogger;
 
 FILEOF_14cbfca0
 
-# ─── File: btp-cap-app/srv/lib/security/code-anonymizer.js ───
-cat > "btp-cap-app/srv/lib/security/code-anonymizer.js" << 'FILEOF_df2df69c'
+# ─── File: sap-code-insight/srv/lib/security/code-anonymizer.js ───
+cat > "sap-code-insight/srv/lib/security/code-anonymizer.js" << 'FILEOF_df2df69c'
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * CODE ANONYMIZER / OBFUSCATOR
@@ -5118,8 +5118,8 @@ module.exports = CodeAnonymizer;
 
 FILEOF_df2df69c
 
-# ─── File: btp-cap-app/srv/lib/security/data-retention.js ───
-cat > "btp-cap-app/srv/lib/security/data-retention.js" << 'FILEOF_cff69639'
+# ─── File: sap-code-insight/srv/lib/security/data-retention.js ───
+cat > "sap-code-insight/srv/lib/security/data-retention.js" << 'FILEOF_cff69639'
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * DATA RETENTION & PURGE SERVICE
@@ -5363,8 +5363,8 @@ module.exports = DataRetentionService;
 
 FILEOF_cff69639
 
-# ─── File: btp-cap-app/srv/lib/security/encryption-service.js ───
-cat > "btp-cap-app/srv/lib/security/encryption-service.js" << 'FILEOF_b0cc6ff2'
+# ─── File: sap-code-insight/srv/lib/security/encryption-service.js ───
+cat > "sap-code-insight/srv/lib/security/encryption-service.js" << 'FILEOF_b0cc6ff2'
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * ENCRYPTION SERVICE
@@ -5572,8 +5572,8 @@ module.exports = EncryptionService;
 
 FILEOF_b0cc6ff2
 
-# ─── File: btp-cap-app/srv/lib/security/security-middleware.js ───
-cat > "btp-cap-app/srv/lib/security/security-middleware.js" << 'FILEOF_73778259'
+# ─── File: sap-code-insight/srv/lib/security/security-middleware.js ───
+cat > "sap-code-insight/srv/lib/security/security-middleware.js" << 'FILEOF_73778259'
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * SECURITY MIDDLEWARE
@@ -5784,8 +5784,8 @@ module.exports = SecurityMiddleware;
 
 FILEOF_73778259
 
-# ─── File: btp-cap-app/srv/saas-admin-service.cds ───
-cat > "btp-cap-app/srv/saas-admin-service.cds" << 'FILEOF_79c7cce0'
+# ─── File: sap-code-insight/srv/saas-admin-service.cds ───
+cat > "sap-code-insight/srv/saas-admin-service.cds" << 'FILEOF_79c7cce0'
 using abap.analyzer from '../db/schema-multitenant';
 
 /**
@@ -5857,8 +5857,8 @@ service SaaSAdminService @(path: '/api/admin', requires: 'Admin') {
 
 FILEOF_79c7cce0
 
-# ─── File: btp-cap-app/srv/saas-admin-service.js ───
-cat > "btp-cap-app/srv/saas-admin-service.js" << 'FILEOF_5d3e9635'
+# ─── File: sap-code-insight/srv/saas-admin-service.js ───
+cat > "sap-code-insight/srv/saas-admin-service.js" << 'FILEOF_5d3e9635'
 const cds = require('@sap/cds');
 const LOG = cds.log('saas-admin');
 const DataRetentionService = require('./lib/security/data-retention');
@@ -6124,12 +6124,12 @@ By granting this consent, you acknowledge and agree that:
 
 FILEOF_5d3e9635
 
-# ─── File: btp-cap-app/xs-security-mt.json ───
-cat > "btp-cap-app/xs-security-mt.json" << 'FILEOF_f46514f6'
+# ─── File: sap-code-insight/xs-security-mt.json ───
+cat > "sap-code-insight/xs-security-mt.json" << 'FILEOF_f46514f6'
 {
-    "xsappname": "abap-code-analyzer",
+    "xsappname": "sap-code-insight",
     "tenant-mode": "shared",
-    "description": "ABAP Code Analyzer - Multi-Tenant SaaS",
+    "description": "SAP Code Insight - Multi-Tenant SaaS",
     "scopes": [
         {
             "name": "$XSAPPNAME.Viewer",
@@ -6191,17 +6191,17 @@ cat > "btp-cap-app/xs-security-mt.json" << 'FILEOF_f46514f6'
     ],
     "role-collections": [
         {
-            "name": "ABAP_Analyzer_Viewer",
+            "name": "CodeInsight_Viewer",
             "description": "View objects",
             "role-template-references": ["$XSAPPNAME.Viewer"]
         },
         {
-            "name": "ABAP_Analyzer_Developer",
+            "name": "CodeInsight_Developer",
             "description": "Analyze and generate docs",
             "role-template-references": ["$XSAPPNAME.Developer"]
         },
         {
-            "name": "ABAP_Analyzer_TenantAdmin",
+            "name": "CodeInsight_TenantAdmin",
             "description": "Tenant administration",
             "role-template-references": ["$XSAPPNAME.TenantAdmin"]
         }
@@ -6216,12 +6216,12 @@ cat > "btp-cap-app/xs-security-mt.json" << 'FILEOF_f46514f6'
 
 FILEOF_f46514f6
 
-# ─── File: btp-cap-app/xs-security.json ───
-cat > "btp-cap-app/xs-security.json" << 'FILEOF_b2417143'
+# ─── File: sap-code-insight/xs-security.json ───
+cat > "sap-code-insight/xs-security.json" << 'FILEOF_b2417143'
 {
-    "xsappname": "abap-code-analyzer",
+    "xsappname": "sap-code-insight",
     "tenant-mode": "dedicated",
-    "description": "ABAP Code Analyzer Security Configuration",
+    "description": "SAP Code Insight Security Configuration",
     "scopes": [
         {
             "name": "$XSAPPNAME.Viewer",
@@ -6246,12 +6246,12 @@ cat > "btp-cap-app/xs-security.json" << 'FILEOF_b2417143'
     ],
     "role-collections": [
         {
-            "name": "ABAPAnalyzer_Viewer",
+            "name": "CodeInsight_Viewer",
             "description": "View ABAP objects",
             "role-template-references": ["$XSAPPNAME.Viewer"]
         },
         {
-            "name": "ABAPAnalyzer_Admin",
+            "name": "CodeInsight_Admin",
             "description": "Full access including document generation",
             "role-template-references": ["$XSAPPNAME.Admin"]
         }
@@ -6262,7 +6262,7 @@ FILEOF_b2417143
 
 # ─── File: docs/ARCHITECTURE.md ───
 cat > "docs/ARCHITECTURE.md" << 'FILEOF_6834519b'
-# SAP BTP CAPM Solution: ABAP Code Analyzer & BRD Document Generator
+# SAP BTP CAPM Solution: SAP Code Insight & BRD Document Generator
 
 ## Architecture Overview
 
@@ -6330,7 +6330,7 @@ FILEOF_6834519b
 cat > "docs/SECURITY_SAAS_ARCHITECTURE.md" << 'FILEOF_930af7d7'
 # Security Architecture & SaaS Multi-Tenancy Guide
 
-## ABAP Code Analyzer — Enterprise SaaS Solution
+## SAP Code Insight — Enterprise SaaS Solution
 
 ---
 
@@ -6770,7 +6770,7 @@ cf create-user-provided-service claude-api -p '{"api-key":"sk-ant-your-key-here"
 
 #### 3.1 Initialize Project
 ```bash
-cd btp-cap-app
+cd sap-code-insight
 npm install
 ```
 
@@ -6826,12 +6826,12 @@ mbt build -t ./mta_archives
 cf login -a <API_ENDPOINT> -o <ORG> -s <SPACE>
 
 # Deploy
-cf deploy mta_archives/abap-code-analyzer_1.0.0.mtar
+cf deploy mta_archives/sap-code-insight_1.0.0.mtar
 ```
 
 #### 4.3 Assign Role Collections
 1. BTP Cockpit → Security → Role Collections
-2. Assign `ABAPAnalyzer_Admin` to your users
+2. Assign `CodeInsight_Admin` to your users
 
 ---
 
@@ -7602,5 +7602,5 @@ echo " files total"
 echo ""
 echo "To push to Git, run:"
 echo "  git add -A"
-echo "  git commit -m 'feat: Complete ABAP Code Analyzer SaaS with Security & Multi-Tenancy'"
+echo "  git commit -m 'feat: Complete SAP Code Insight SaaS with Security & Multi-Tenancy'"
 echo "  git push origin main"

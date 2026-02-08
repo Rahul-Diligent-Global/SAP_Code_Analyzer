@@ -1,7 +1,7 @@
 _schema-version: '3.1'
-ID: abap-code-analyzer-saas
+ID: sap-code-insight-saas
 version: 1.0.0
-description: ABAP Code Analyzer SaaS - Multi-Tenant with Security
+description: SAP Code Insight SaaS - Multi-Tenant with Security
 
 parameters:
   enable-parallel-deployments: true
@@ -10,7 +10,7 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # CAP Backend Service (Multi-Tenant)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-srv
+  - name: codeinsight-srv
     type: nodejs
     path: gen/srv
     parameters:
@@ -25,14 +25,14 @@ modules:
       CLAUDE_API_URL: "https://api.anthropic.com/v1/messages"
       APP_DOMAIN: "${default-domain}"
     requires:
-      - name: abap-analyzer-auth
-      - name: abap-analyzer-mtx
-      - name: abap-analyzer-registry
-      - name: abap-analyzer-sm
-      - name: abap-analyzer-destination
-      - name: abap-analyzer-connectivity
-      - name: abap-analyzer-credstore
-      - name: abap-analyzer-auditlog
+      - name: codeinsight-auth
+      - name: codeinsight-mtx
+      - name: codeinsight-registry
+      - name: codeinsight-sm
+      - name: codeinsight-destination
+      - name: codeinsight-connectivity
+      - name: codeinsight-credstore
+      - name: codeinsight-auditlog
     provides:
       - name: srv-api
         properties:
@@ -42,16 +42,16 @@ modules:
   # MTX Sidecar (Multitenancy Extension)
   # Handles tenant DB schema provisioning
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-mtx
+  - name: codeinsight-mtx
     type: nodejs
     path: gen/mtx/sidecar
     parameters:
       buildpack: nodejs_buildpack
       memory: 256M
     requires:
-      - name: abap-analyzer-auth
-      - name: abap-analyzer-sm
-      - name: abap-analyzer-registry
+      - name: codeinsight-auth
+      - name: codeinsight-sm
+      - name: codeinsight-registry
     provides:
       - name: mtx-api
         properties:
@@ -60,7 +60,7 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # App Router (Tenant-Aware, handles subdomain routing)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-app
+  - name: codeinsight-app
     type: approuter.nodejs
     path: app/
     parameters:
@@ -70,7 +70,7 @@ modules:
     properties:
       TENANT_HOST_PATTERN: "^(.*)-${default-uri}"
     requires:
-      - name: abap-analyzer-auth
+      - name: codeinsight-auth
       - name: srv-api
         group: destinations
         properties:
@@ -87,19 +87,19 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # DB Deployer (Schema for provider account)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-db-deployer
+  - name: codeinsight-db-deployer
     type: hdb
     path: gen/db
     parameters:
       buildpack: nodejs_buildpack
     requires:
-      - name: abap-analyzer-sm
+      - name: codeinsight-sm
 
 resources:
   # ═══════════════════════════════════════════════════════════
   # XSUAA (Multi-Tenant Auth)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-auth
+  - name: codeinsight-auth
     type: org.cloudfoundry.managed-service
     parameters:
       service: xsuaa
@@ -109,15 +109,15 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # SaaS Provisioning Service (Subscription Management)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-registry
+  - name: codeinsight-registry
     type: org.cloudfoundry.managed-service
     parameters:
       service: saas-registry
       service-plan: application
       config:
-        xsappname: abap-code-analyzer
-        appName: abap-code-analyzer
-        displayName: "ABAP Code Analyzer"
+        xsappname: sap-code-insight
+        appName: sap-code-insight
+        displayName: "SAP Code Insight"
         description: "AI-Powered ABAP Code Analysis & BRD Document Generator"
         category: "SAP BTP Applications"
         appUrls:
@@ -129,7 +129,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Service Manager (HDI Container per Tenant)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-sm
+  - name: codeinsight-sm
     type: org.cloudfoundry.managed-service
     parameters:
       service: service-manager
@@ -138,7 +138,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Destination Service (Per-Tenant SAP connections)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-destination
+  - name: codeinsight-destination
     type: org.cloudfoundry.managed-service
     parameters:
       service: destination
@@ -147,7 +147,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Connectivity Service (Cloud Connector)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-connectivity
+  - name: codeinsight-connectivity
     type: org.cloudfoundry.managed-service
     parameters:
       service: connectivity
@@ -156,7 +156,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Credential Store (Encryption Keys & API Keys)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-credstore
+  - name: codeinsight-credstore
     type: org.cloudfoundry.managed-service
     parameters:
       service: credstore
@@ -168,7 +168,7 @@ resources:
   # ═══════════════════════════════════════════════════════════
   # Audit Log Service (Compliance)
   # ═══════════════════════════════════════════════════════════
-  - name: abap-analyzer-auditlog
+  - name: codeinsight-auditlog
     type: org.cloudfoundry.managed-service
     parameters:
       service: auditlog

@@ -91,7 +91,7 @@ cf create-user-provided-service claude-api -p '{"api-key":"sk-ant-your-key-here"
 
 #### 3.1 Initialize Project
 ```bash
-cd btp-cap-app
+cd sap-code-insight
 npm install
 ```
 
@@ -147,12 +147,12 @@ mbt build -t ./mta_archives
 cf login -a <API_ENDPOINT> -o <ORG> -s <SPACE>
 
 # Deploy
-cf deploy mta_archives/abap-code-analyzer_1.0.0.mtar
+cf deploy mta_archives/sap-code-insight_1.0.0.mtar
 ```
 
 #### 4.3 Assign Role Collections
 1. BTP Cockpit → Security → Role Collections
-2. Assign `ABAPAnalyzer_Admin` to your users
+2. Assign `CodeInsight_Admin` to your users
 
 ---
 
