@@ -1,7 +1,16 @@
 {
     "welcomeFile": "/fiori-ui/webapp/index.html",
     "authenticationMethod": "route",
+    "sessionTimeout": 30,
     "routes": [
+        {
+            "source": "^/api/csrf-token$",
+            "target": "/api/analyzer/$metadata",
+            "authenticationType": "xsuaa",
+            "destination": "srv-api",
+            "csrfProtection": false,
+            "httpMethods": ["GET", "HEAD"]
+        },
         {
             "source": "^/api/(.*)$",
             "target": "/api/$1",

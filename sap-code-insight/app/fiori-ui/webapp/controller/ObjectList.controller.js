@@ -150,7 +150,7 @@ sap.ui.define([
             );
         },
 
-        _callRefreshAction: function () {
+        _callRefreshAction: function (bRetry) {
             var that = this;
             var oModel = this.getOwnerComponent().getModel();
 
@@ -166,8 +166,38 @@ sap.ui.define([
                 that._oViewModel.setProperty("/busy", false);
                 that.byId("objectTable").getBinding("items").refresh();
             }).catch(function (oError) {
+                // Handle CSRF token expiry (403) - retry once with fresh token
+                if (!bRetry && oError.statusCode === 403) {
+                    that._refreshCSRFTokenAndRetry(function () {
+                        that._callRefreshAction(true);
+                    });
+                    return;
+                }
                 that._oViewModel.setProperty("/busy", false);
                 MessageBox.error("Failed to refresh objects: " + (oError.message || "Unknown error"));
+            });
+        },
+
+        /**
+         * Refresh CSRF token from Application Router and retry the action
+         */
+        _refreshCSRFTokenAndRetry: function (fnRetry) {
+            var sServiceUrl = this.getOwnerComponent().getManifestEntry("/sap.app/dataSources/mainService/uri") || "/api/analyzer/";
+
+            jQuery.ajax({
+                url: sServiceUrl,
+                type: "HEAD",
+                headers: { "X-CSRF-Token": "Fetch" },
+                success: function (data, textStatus, jqXHR) {
+                    var sToken = jqXHR.getResponseHeader("X-CSRF-Token");
+                    if (sToken) {
+                        jQuery.ajaxSetup({ headers: { "X-CSRF-Token": sToken } });
+                    }
+                    fnRetry();
+                },
+                error: function () {
+                    fnRetry(); // Retry anyway - let the server reject if token is invalid
+                }
             });
         },
 

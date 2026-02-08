@@ -35,8 +35,46 @@ sap.ui.define([
             });
             this.setModel(oViewModel, "viewModel");
 
+            // Pre-fetch CSRF token from Application Router
+            // This ensures the OData V4 model has a valid token before first POST
+            this._prefetchCSRFToken();
+
             // Initialize routing
             this.getRouter().initialize();
+        },
+
+        /**
+         * Pre-fetch CSRF token from the Application Router.
+         * The SAP Application Router validates CSRF tokens on all
+         * state-changing requests (POST/PUT/DELETE/PATCH).
+         * OData V4 model handles token refresh automatically after this
+         * initial fetch primes the session.
+         */
+        _prefetchCSRFToken: function () {
+            var sServiceUrl = this.getManifestEntry("/sap.app/dataSources/mainService/uri") || "/api/analyzer/";
+
+            jQuery.ajax({
+                url: sServiceUrl,
+                type: "HEAD",
+                headers: {
+                    "X-CSRF-Token": "Fetch"
+                },
+                success: function (data, textStatus, jqXHR) {
+                    var sToken = jqXHR.getResponseHeader("X-CSRF-Token");
+                    if (sToken) {
+                        // Store token for any manual AJAX calls
+                        jQuery.ajaxSetup({
+                            headers: {
+                                "X-CSRF-Token": sToken
+                            }
+                        });
+                    }
+                },
+                error: function () {
+                    // Token fetch failed - OData model will retry on first POST
+                    jQuery.sap.log.warning("CSRF token pre-fetch failed. Will retry on first action call.");
+                }
+            });
         },
 
         getContentDensityClass: function () {

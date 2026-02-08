@@ -70,8 +70,9 @@ sap.ui.define([
 
         /**
          * Load source code from SAP via CAP action
+         * Includes CSRF token retry logic for Application Router protection
          */
-        _loadSourceCode: function (sObjectName, sCategory) {
+        _loadSourceCode: function (sObjectName, sCategory, bRetry) {
             var that = this;
             var oModel = this.getOwnerComponent().getModel();
 
@@ -102,6 +103,13 @@ sap.ui.define([
                 that._oViewModel.setProperty("/busy", false);
 
             }).catch(function (oError) {
+                // Handle CSRF token expiry (403) - refresh token and retry once
+                if (!bRetry && oError.statusCode === 403) {
+                    that._refreshCSRFTokenAndRetry(function () {
+                        that._loadSourceCode(sObjectName, sCategory, true);
+                    });
+                    return;
+                }
                 that._oViewModel.setProperty("/busy", false);
                 MessageBox.error("Failed to load source code: " + (oError.message || "Unknown error"));
             });
@@ -197,7 +205,7 @@ sap.ui.define([
         // CLAUDE AI ANALYSIS
         // ═══════════════════════════════════════════════════════════
 
-        onAnalyzeCode: function () {
+        onAnalyzeCode: function (bRetry) {
             var that = this;
             this._oBusyDialog.setText("Analyzing code with Claude AI...\n\nThis may take a moment...");
             this._oBusyDialog.open();
@@ -227,6 +235,14 @@ sap.ui.define([
                 }
 
             }).catch(function (oError) {
+                // Handle CSRF token expiry (403) - refresh and retry once
+                if (!bRetry && oError.statusCode === 403) {
+                    that._oBusyDialog.close();
+                    that._refreshCSRFTokenAndRetry(function () {
+                        that.onAnalyzeCode(true);
+                    });
+                    return;
+                }
                 that._oBusyDialog.close();
                 MessageBox.error("Analysis failed: " + (oError.message || "Unknown error"));
             });
@@ -527,7 +543,7 @@ sap.ui.define([
             oDialog.open();
         },
 
-        _executeDocumentGeneration: function (sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId) {
+        _executeDocumentGeneration: function (sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId, bRetry) {
             var that = this;
 
             this._oBusyDialog.setText(
@@ -563,6 +579,14 @@ sap.ui.define([
                     MessageBox.error("Document generation failed: " + (oResult.message || "Unknown error"));
                 }
             }).catch(function (oError) {
+                // Handle CSRF token expiry (403) - refresh and retry once
+                if (!bRetry && oError.statusCode === 403) {
+                    that._oBusyDialog.close();
+                    that._refreshCSRFTokenAndRetry(function () {
+                        that._executeDocumentGeneration(sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId, true);
+                    });
+                    return;
+                }
                 that._oBusyDialog.close();
                 MessageBox.error("Document generation failed: " + (oError.message || "Unknown error"));
             });
@@ -961,6 +985,29 @@ sap.ui.define([
         // ═══════════════════════════════════════════════════════════
         // UTILITIES
         // ═══════════════════════════════════════════════════════════
+
+        /**
+         * Refresh CSRF token from Application Router and retry the action
+         */
+        _refreshCSRFTokenAndRetry: function (fnRetry) {
+            var sServiceUrl = this.getOwnerComponent().getManifestEntry("/sap.app/dataSources/mainService/uri") || "/api/analyzer/";
+
+            jQuery.ajax({
+                url: sServiceUrl,
+                type: "HEAD",
+                headers: { "X-CSRF-Token": "Fetch" },
+                success: function (data, textStatus, jqXHR) {
+                    var sToken = jqXHR.getResponseHeader("X-CSRF-Token");
+                    if (sToken) {
+                        jQuery.ajaxSetup({ headers: { "X-CSRF-Token": sToken } });
+                    }
+                    fnRetry();
+                },
+                error: function () {
+                    fnRetry();
+                }
+            });
+        },
 
         _downloadFile: function (sBase64, sFileName, sFileType) {
             var sMimeType = sFileType === "PDF"
