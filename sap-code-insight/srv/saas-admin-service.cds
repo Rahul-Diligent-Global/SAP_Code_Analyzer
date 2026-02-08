@@ -1,4 +1,4 @@
-using abap.analyzer from '../db/schema-multitenant';
+using abap.analyzer from '../db/schema';
 
 /**
  * SaaS Administration Service
