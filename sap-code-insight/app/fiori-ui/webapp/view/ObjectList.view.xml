@@ -29,6 +29,7 @@
                                 icon="sap-icon://company-view"
                                 type="Transparent"
                                 press=".onOpenTenantManager"
+                                visible="{viewModel>/isAdmin}"
                                 class="codeInsightHeaderBtn"/>
                             <Button
                                 text="Refresh from SAP"

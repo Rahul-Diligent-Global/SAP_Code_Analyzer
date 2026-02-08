@@ -116,5 +116,15 @@ service CodeAnalyzerService @(path: '/api/analyzer') {
         category   : String(30),
         analysisType : String(30)  // BRD, FUNC_SPEC, TECH_SPEC, CODE_REVIEW
     ) returns String; // JSON string with analysis
+
+    /**
+     * Get current user info including roles
+     * Used by UI to show/hide admin features
+     */
+    function getUserInfo() returns {
+        id     : String;
+        name   : String;
+        isAdmin: Boolean;
+    };
 }
 

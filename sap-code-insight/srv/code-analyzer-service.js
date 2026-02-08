@@ -47,6 +47,15 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
             );
         });
 
+        this.on('getUserInfo', async (req) => {
+            const user = req.user;
+            return {
+                id: user?.id || 'anonymous',
+                name: user?.id || 'anonymous',
+                isAdmin: user?.is('Admin') || user?.is('admin') || false
+            };
+        });
+
         await super.init();
     }
 

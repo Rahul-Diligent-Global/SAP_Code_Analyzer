@@ -58,6 +58,22 @@ sap.ui.define([
 
         onAfterRendering: function () {
             this._oTable = this.byId("objectTable");
+            this._checkUserRole();
+        },
+
+        _checkUserRole: function () {
+            var that = this;
+            var oModel = this.getOwnerComponent().getModel();
+
+            var oContext = oModel.bindContext("/getUserInfo(...)");
+            oContext.execute().then(function () {
+                var oResult = oContext.getBoundContext().getObject();
+                that._oViewModel.setProperty("/isAdmin", oResult.isAdmin);
+                that._oViewModel.setProperty("/userId", oResult.id);
+            }).catch(function () {
+                // In dev mode with dummy auth, default to admin
+                that._oViewModel.setProperty("/isAdmin", true);
+            });
         },
 
         // ═══════════════════════════════════════════════════════════
