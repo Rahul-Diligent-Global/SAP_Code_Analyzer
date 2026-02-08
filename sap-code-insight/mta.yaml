@@ -21,11 +21,12 @@ modules:
       ANTHROPIC_API_KEY: "~{claude-api/api-key}"
       CLAUDE_MODEL: "claude-sonnet-4-20250514"
       CLAUDE_MAX_TOKENS: "8192"
-      SAP_DESTINATION: "SAP_ONPREM_RFC"
+      SAP_DESTINATION: "S2A"
     requires:
       - name: codeinsight-auth
       - name: codeinsight-db
       - name: codeinsight-destination
+      - name: codeinsight-connectivity
       - name: claude-api
     provides:
       - name: srv-api
@@ -88,6 +89,15 @@ resources:
     type: org.cloudfoundry.managed-service
     parameters:
       service: destination
+      service-plan: lite
+
+  # ═══════════════════════════════════════════════════════════
+  # Connectivity Service (Cloud Connector)
+  # ═══════════════════════════════════════════════════════════
+  - name: codeinsight-connectivity
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: connectivity
       service-plan: lite
 
   # ═══════════════════════════════════════════════════════════
