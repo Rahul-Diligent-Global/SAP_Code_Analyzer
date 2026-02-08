@@ -112,67 +112,14 @@ class SAPConnector {
     }
 
     /**
-     * Fetch CSRF token from SAP system via GET request
-     * SAP ICF requires X-CSRF-Token for HTTP POST/PUT/DELETE operations
-     */
-    async _fetchCSRFToken(destination, url) {
-        const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
-
-        try {
-            const tokenResponse = await executeHttpRequest(destination, {
-                method: 'GET',
-                url: url,
-                headers: {
-                    'X-CSRF-Token': 'Fetch'
-                }
-            });
-
-            const csrfToken = tokenResponse.headers['x-csrf-token'];
-            const cookies = tokenResponse.headers['set-cookie'];
-
-            if (csrfToken) {
-                LOG.info('CSRF token fetched successfully');
-                return {
-                    token: csrfToken,
-                    cookies: Array.isArray(cookies) ? cookies.map(c => c.split(';')[0]).join('; ') : ''
-                };
-            }
-
-            LOG.warn('No CSRF token returned in response headers');
-            return { token: null, cookies: '' };
-
-        } catch (err) {
-            // Some SAP systems return 405 for GET on SOAP endpoints; try HEAD
-            if (err.response?.status === 405 || err.response?.status === 404) {
-                LOG.info('GET failed for CSRF fetch, trying HEAD request...');
-                try {
-                    const headResponse = await executeHttpRequest(destination, {
-                        method: 'HEAD',
-                        url: '/sap/bc/ping',
-                        headers: {
-                            'X-CSRF-Token': 'Fetch'
-                        }
-                    });
-
-                    return {
-                        token: headResponse.headers['x-csrf-token'] || null,
-                        cookies: Array.isArray(headResponse.headers['set-cookie'])
-                            ? headResponse.headers['set-cookie'].map(c => c.split(';')[0]).join('; ')
-                            : ''
-                    };
-                } catch (headErr) {
-                    LOG.warn(`CSRF token HEAD fallback also failed: ${headErr.message}`);
-                }
-            }
-
-            LOG.warn(`CSRF token fetch failed: ${err.message}. Proceeding without CSRF token.`);
-            return { token: null, cookies: '' };
-        }
-    }
-
-    /**
      * Call RFC via SOAP over HTTP through BTP Destination + Cloud Connector
-     * Includes CSRF token handling for SAP ICF protection
+     *
+     * IMPORTANT: fetchCsrfToken is set to false because:
+     * - SAP SOAP/RFC endpoints do NOT support CSRF tokens
+     * - The SAP Cloud SDK's built-in CSRF middleware tries HEAD request
+     *   to fetch a token, but the SOAP endpoint rejects HEAD with 403
+     * - Authentication is handled via Basic Auth + Cloud Connector (SSL tunnel)
+     * - CSRF protection is not needed for server-to-server SOAP calls
      */
     async _callRFC(destinationName, functionName, params, mapFn) {
         const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
@@ -192,54 +139,21 @@ class SAPConnector {
         const rfcUrl = `/sap/bc/srt/rfc/sap/${functionName.toLowerCase()}/`;
         const soapBody = this._buildSOAPEnvelope(functionName, params);
 
-        // Step 1: Fetch CSRF token from SAP system
-        const csrf = await this._fetchCSRFToken(destination, rfcUrl);
-
-        // Step 2: Build request headers with CSRF token
-        const headers = {
-            'Content-Type': 'text/xml; charset=utf-8',
-            'SOAPAction': `urn:sap-com:document:sap:rfc:functions:${functionName}`
-        };
-
-        if (csrf.token) {
-            headers['X-CSRF-Token'] = csrf.token;
-        }
-        if (csrf.cookies) {
-            headers['Cookie'] = csrf.cookies;
-        }
-
-        // Step 3: Execute the SOAP POST request with CSRF token
-        let response;
-        try {
-            response = await executeHttpRequest(destination, {
+        const response = await executeHttpRequest(
+            destination,
+            {
                 method: 'POST',
                 url: rfcUrl,
-                headers,
+                headers: {
+                    'Content-Type': 'text/xml; charset=utf-8',
+                    'SOAPAction': `urn:sap-com:document:sap:rfc:functions:${functionName}`
+                },
                 data: soapBody
-            });
-        } catch (err) {
-            // If CSRF token validation fails (403), retry once with fresh token
-            if (err.response?.status === 403) {
-                LOG.warn('CSRF token rejected (403), retrying with fresh token...');
-                const freshCsrf = await this._fetchCSRFToken(destination, rfcUrl);
-
-                if (freshCsrf.token) {
-                    headers['X-CSRF-Token'] = freshCsrf.token;
-                }
-                if (freshCsrf.cookies) {
-                    headers['Cookie'] = freshCsrf.cookies;
-                }
-
-                response = await executeHttpRequest(destination, {
-                    method: 'POST',
-                    url: rfcUrl,
-                    headers,
-                    data: soapBody
-                });
-            } else {
-                throw err;
+            },
+            {
+                fetchCsrfToken: false
             }
-        }
+        );
 
         if (response.status !== 200) {
             throw new Error(`RFC ${functionName} failed (HTTP ${response.status})`);
