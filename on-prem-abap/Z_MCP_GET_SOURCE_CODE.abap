@@ -26,6 +26,7 @@ FUNCTION z_mcp_get_source_code.
 *"----------------------------------------------------------------------
 
   DATA: lt_source    TYPE TABLE OF string,
+        lv_src_line  TYPE string,
         ls_source    TYPE zsmcp_source_line,
         ls_include   TYPE zsmcp_include_info,
         lv_progname  TYPE syrepid,

@@ -29,7 +29,7 @@ FUNCTION z_mcp_get_custom_objects.
 
   DATA: lt_objects TYPE TABLE OF zsmcp_custom_object,
         ls_object  TYPE zsmcp_custom_object,
-        lv_prefix  TYPE string.
+        lv_prefix  TYPE char50.
 
   lv_prefix = iv_namespace && '%'.
 

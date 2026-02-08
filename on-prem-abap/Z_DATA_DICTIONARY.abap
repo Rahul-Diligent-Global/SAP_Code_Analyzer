@@ -2,6 +2,9 @@
 *& ABAP Data Dictionary Objects Required
 *& Create these in SE11 before activating the RFCs
 *&---------------------------------------------------------------------*
+*& IMPORTANT: All fields MUST be flat types (CHAR, NUMC, DATS, INT4...)
+*& RFC does NOT allow deep types (STRING, XSTRING, internal tables)
+*&---------------------------------------------------------------------*
 
 *-----------------------------------------------------------------------
 * Structure: ZSMCP_CUSTOM_OBJECT
@@ -9,9 +12,9 @@
 *-----------------------------------------------------------------------
 * Field Name       | Data Element    | Type     | Length | Description
 *-----------------------------------------------------------------------
-* OBJECT_NAME      | SOBJ_NAME       | CHAR     | 120    | Object Name
+* OBJECT_NAME      | SOBJ_NAME       | CHAR     | 40     | Object Name
 * OBJECT_TYPE      | TROBJTYPE       | CHAR     | 4      | Object Type (PROG/CLAS/FUGR)
-* OBJECT_TYPE_TEXT  | STRING          | STRING   |        | Readable Type Description
+* OBJECT_TYPE_TEXT  | CHAR60          | CHAR     | 60     | Readable Type Description
 * CATEGORY         | CHAR30          | CHAR     | 30     | Category Key
 * SUB_TYPE         | SUBC            | CHAR     | 1      | Program Sub-type
 * PACKAGE          | DEVCLASS        | CHAR     | 30     | Development Package
@@ -28,9 +31,9 @@
 * Field Name       | Data Element    | Type     | Length | Description
 *-----------------------------------------------------------------------
 * LINE_NUMBER      | I               | INT4     | 10     | Line Number
-* SOURCE_LINE      | STRING          | STRING   |        | Source Code Line
-* INCLUDE_NAME     | SOBJ_NAME       | CHAR     | 120    | Include/Component Name
-* SECTION          | STRING          | STRING   |        | Section (MAIN/INCLUDE/METHOD:xxx)
+* SOURCE_LINE      | CHAR255         | CHAR     | 255    | Source Code Line
+* INCLUDE_NAME     | SOBJ_NAME       | CHAR     | 40     | Include/Component Name
+* SECTION          | CHAR60          | CHAR     | 60     | Section (MAIN/INCLUDE/METHOD:xxx)
 *-----------------------------------------------------------------------
 
 *-----------------------------------------------------------------------
@@ -39,9 +42,9 @@
 *-----------------------------------------------------------------------
 * Field Name       | Data Element    | Type     | Length | Description
 *-----------------------------------------------------------------------
-* INCLUDE_NAME     | SOBJ_NAME       | CHAR     | 120    | Include Name
-* INCLUDE_TYPE     | STRING          | STRING   |        | Type (INCLUDE/METHOD/FM)
-* PARENT_OBJECT    | SOBJ_NAME       | CHAR     | 120    | Parent Object Name
+* INCLUDE_NAME     | SOBJ_NAME       | CHAR     | 40     | Include Name
+* INCLUDE_TYPE     | CHAR60          | CHAR     | 60     | Type (INCLUDE/METHOD/FM)
+* PARENT_OBJECT    | SOBJ_NAME       | CHAR     | 40     | Parent Object Name
 * LINE_COUNT       | I               | INT4     | 10     | Number of Lines
 *-----------------------------------------------------------------------
 
