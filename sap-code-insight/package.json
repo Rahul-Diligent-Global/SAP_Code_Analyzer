@@ -15,7 +15,8 @@
     "pdfkit": "^0.13",
     "passport": "^0.7",
     "@sap/xssec": "^4",
-    "@sap/xsenv": "^5"
+    "@sap/xsenv": "^5",
+    "@cap-js/hana": "^2"
   },
   "devDependencies": {
     "@cap-js/sqlite": "^2",
@@ -31,14 +32,13 @@
   },
   "cds": {
     "requires": {
-      "SAP_ONPREM": {
-        "kind": "odata",
-        "model": "srv/external/SAP_ONPREM",
+      "db": {
         "[production]": {
-          "credentials": {
-            "destination": "SAP_ONPREM_RFC",
-            "path": "/sap/bc/srt/scs_ext/sap"
-          }
+          "kind": "hana"
+        },
+        "[development]": {
+          "kind": "sqlite",
+          "credentials": { "url": ":memory:" }
         }
       },
       "auth": {

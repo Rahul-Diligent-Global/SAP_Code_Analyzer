@@ -10,11 +10,9 @@
             "csrfProtection": true
         },
         {
-            "source": "^/fiori-ui/(.*)$",
-            "target": "/fiori-ui/$1",
-            "localDir": "fiori-ui/webapp",
+            "source": "^(.*)$",
+            "localDir": ".",
             "authenticationType": "xsuaa"
         }
     ]
 }
-
