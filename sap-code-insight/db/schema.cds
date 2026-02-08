@@ -2,11 +2,19 @@ namespace abap.analyzer;
 
 using { cuid, managed } from '@sap/cds/common';
 
+// ─── Tenant Isolation Aspect ───
+aspect tenantAware {
+    tenantId : String(36);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CORE BUSINESS ENTITIES
+// ═══════════════════════════════════════════════════════════════════════
+
 /**
  * Cache of custom ABAP objects fetched from On-Premise
- * Refreshed periodically or on-demand
  */
-entity CustomObjects : cuid, managed {
+entity CustomObjects : cuid, managed, tenantAware {
     objectName      : String(120)   @title: 'Object Name';
     objectType      : String(10)    @title: 'Object Type';
     objectTypeText  : String(100)   @title: 'Type Description';
@@ -24,7 +32,7 @@ entity CustomObjects : cuid, managed {
 /**
  * Audit log for document generation requests
  */
-entity DocumentGenerationLog : cuid, managed {
+entity DocumentGenerationLog : cuid, managed, tenantAware {
     objectName      : String(120)   @title: 'Object Name';
     objectType      : String(30)    @title: 'Object Type';
     documentType    : String(10)    @title: 'Document Type (PDF/DOCX)';
@@ -41,7 +49,7 @@ entity DocumentGenerationLog : cuid, managed {
 /**
  * Document templates for BRD generation
  */
-entity DocumentTemplates : cuid, managed {
+entity DocumentTemplates : cuid, managed, tenantAware {
     templateName    : String(100)   @title: 'Template Name';
     templateType    : String(20)    @title: 'Template Type';  // BRD, FUNC_SPEC, TECH_SPEC
     description     : String(500)   @title: 'Description';
@@ -50,3 +58,139 @@ entity DocumentTemplates : cuid, managed {
     isActive        : Boolean       @title: 'Active';
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// TENANT MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Tenant configuration - one record per subscribed customer
+ */
+entity TenantConfig : cuid, managed, tenantAware {
+    tenantName          : String(200)  @title: 'Company Name';
+    tenantDomain        : String(200)  @title: 'Custom Domain';
+    status              : String(20)   @title: 'Status'; // ACTIVE, SUSPENDED, OFFBOARDING
+    plan                : String(20)   @title: 'Subscription Plan'; // BASIC, PROFESSIONAL, ENTERPRISE
+    sapSystemId         : String(10)   @title: 'SAP System ID';
+    sapClientNumber     : String(3)    @title: 'SAP Client';
+    destinationName     : String(100)  @title: 'BTP Destination Name';
+    cloudConnectorLocId : String(50)   @title: 'Cloud Connector Location ID';
+    maxUsersAllowed     : Integer      @title: 'Max Users';
+    maxAPICallsPerMonth : Integer      @title: 'Max Claude API Calls/Month';
+    currentAPICallCount : Integer default 0;
+    apiCallResetDate    : Date;
+
+    // Security settings per tenant
+    anonymizationLevel  : String(10) default 'STANDARD'; // NONE/BASIC/STANDARD/STRICT/MAXIMUM
+    retentionPolicy     : LargeString;
+    companyTerms        : LargeString;
+    sensitiveKeywords   : LargeString;
+    ipAllowlist         : LargeString;
+    claudeApiKeyOverride: LargeString;
+
+    // Onboarding tracking
+    onboardedAt         : Timestamp;
+    onboardedBy         : String(100);
+    lastActiveAt        : Timestamp;
+}
+
+/**
+ * Consent records for AI processing (GDPR/Compliance)
+ */
+entity TenantConsent : cuid, managed, tenantAware {
+    consentType    : String(50)    @title: 'Consent Type';
+    status         : String(20)    @title: 'Status'; // ACTIVE, REVOKED, EXPIRED
+    grantedBy      : String(100)   @title: 'Granted By (Admin)';
+    grantedAt      : Timestamp;
+    expiresAt      : Timestamp;
+    consentVersion : String(10)    @title: 'Agreement Version';
+    ipAddress      : String(50);
+    legalEntity    : String(200);
+    agreementText  : LargeString   @title: 'Full Agreement Text Accepted';
+}
+
+/**
+ * Tenant users mapping (supplementary to XSUAA)
+ */
+entity TenantUsers : cuid, managed, tenantAware {
+    userId     : String(100)  @title: 'User ID (from IDP)';
+    email      : String(200)  @title: 'Email';
+    role       : String(20)   @title: 'Role'; // ADMIN, DEVELOPER, VIEWER
+    isActive   : Boolean default true;
+    lastLogin  : Timestamp;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECURITY & AUDIT ENTITIES
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Security audit log - immutable, comprehensive
+ */
+entity SecurityAuditLog : cuid, tenantAware {
+    timestamp   : Timestamp  @title: 'Event Time';
+    eventType   : String(50) @title: 'Event Type';
+    severity    : String(10) @title: 'Severity'; // INFO, MEDIUM, HIGH, CRITICAL
+    userId      : String(100);
+    action      : String(50);
+    objectName  : String(120);
+    details     : LargeString;
+}
+
+/**
+ * Temporary storage for Claude API responses (auto-purged)
+ */
+entity ClaudeResponseCache : cuid, managed, tenantAware {
+    requestId      : UUID;
+    objectName     : String(120);
+    responseHash   : String(64);
+    tokensUsed     : Integer;
+    expiresAt      : Timestamp;
+}
+
+/**
+ * Reversal maps for de-anonymization (auto-purged)
+ */
+entity ReversalMaps : cuid, managed, tenantAware {
+    requestId      : UUID;
+    encryptedMap   : LargeString;
+    expiresAt      : Timestamp;
+}
+
+/**
+ * Temporary source code holder (auto-purged, memory-preferred)
+ */
+entity TempSourceCode : cuid, managed, tenantAware {
+    requestId      : UUID;
+    objectName     : String(120);
+    encryptedCode  : LargeString;
+    expiresAt      : Timestamp;
+}
+
+/**
+ * Session data (auto-purged)
+ */
+entity SessionData : cuid, managed, tenantAware {
+    sessionId   : String(100);
+    userId      : String(100);
+    data        : LargeString;
+    expiresAt   : Timestamp;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SUBSCRIPTION PLAN LIMITS
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Plan definitions
+ */
+entity SubscriptionPlans : cuid, managed {
+    planId              : String(20)  @title: 'Plan ID';
+    planName            : String(100) @title: 'Plan Name';
+    maxUsers            : Integer;
+    maxAPICallsPerMonth : Integer;
+    maxObjectsSync      : Integer;
+    features            : LargeString;
+    anonymizationMin    : String(10);
+    canUseOwnAPIKey     : Boolean default false;
+    pricePerMonth       : Decimal(10,2);
+}
