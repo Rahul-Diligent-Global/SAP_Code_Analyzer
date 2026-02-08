@@ -21,6 +21,17 @@ class ClaudeAnalyzer {
     }
 
     /**
+     * Check if running in mock mode (no API key configured)
+     */
+    get isMockMode() {
+        return !this.apiKey && (
+            process.env.MOCK_SAP_DATA === 'true' ||
+            process.env.CDS_ENV === 'development' ||
+            !process.env.ANTHROPIC_API_KEY
+        );
+    }
+
+    /**
      * Generate BRD (Business Requirements Document) analysis from ABAP code
      */
     async generateBRD(params) {
@@ -29,6 +40,11 @@ class ClaudeAnalyzer {
             includes, detailLevel, customPrompt,
             templatePrompt, templateSections
         } = params;
+
+        if (this.isMockMode) {
+            LOG.info('Mock mode: returning sample BRD analysis');
+            return this._getMockBRDAnalysis(objectName, objectType, title, sourceCode);
+        }
 
         // Build the system prompt for BRD generation
         const systemPrompt = this._buildBRDSystemPrompt(detailLevel, templateSections);
@@ -57,35 +73,43 @@ class ClaudeAnalyzer {
 
     /**
      * General code analysis (without document generation)
+     * Returns structured BRD-like analysis
      */
     async analyzeCode(params) {
         const { objectName, objectType, title, sourceCode, analysisType } = params;
 
-        const systemPrompts = {
-            BRD: 'You are a Senior SAP Functional Consultant. Analyze the ABAP code and provide business requirements.',
-            FUNC_SPEC: 'You are a Senior SAP Technical Architect. Create a functional specification from this ABAP code.',
-            TECH_SPEC: 'You are a Senior ABAP Developer. Create a detailed technical specification from this code.',
-            CODE_REVIEW: 'You are a Senior SAP Code Reviewer. Review this ABAP code for quality, performance, and best practices.'
-        };
+        if (this.isMockMode) {
+            LOG.info('Mock mode: returning sample code analysis');
+            return this._getMockBRDAnalysis(objectName, objectType, title, sourceCode);
+        }
 
-        const systemPrompt = systemPrompts[analysisType] || systemPrompts.BRD;
+        const systemPrompt = this._buildBRDSystemPrompt(
+            'DETAILED',
+            null
+        );
 
-        const userMessage = `Analyze this SAP ABAP object:
+        const userMessage = `Analyze this SAP ABAP object and generate a structured Business Requirements Document:
+
 Object Name: ${objectName}
 Object Type: ${objectType}
 Title: ${title}
+Analysis Type: ${analysisType || 'BRD'}
 
 Source Code:
 \`\`\`abap
 ${sourceCode}
 \`\`\`
 
-Provide your analysis in JSON format with clear sections.`;
+Return ONLY a valid JSON object following the structure defined in the system prompt.
+Do not include any text before or after the JSON.`;
 
         const response = await this._callClaudeAPI(systemPrompt, userMessage);
 
+        // Parse into structured format
+        const analysis = this._parseBRDResponse(response.content);
+
         return {
-            analysis: response.content[0]?.text || '',
+            ...analysis,
             modelUsed: this.model,
             tokensUsed: response.usage?.input_tokens + response.usage?.output_tokens || 0
         };
@@ -263,6 +287,193 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
     }
 
     /**
+     * Mock BRD analysis for local development without Claude API key
+     */
+    _getMockBRDAnalysis(objectName, objectType, title, sourceCode) {
+        // Extract some info from source code for realistic mock
+        const lines = (sourceCode || '').split('\n');
+        const totalLines = lines.length;
+        const tables = [];
+        const forms = [];
+
+        for (const line of lines) {
+            const tableMatch = line.match(/FROM\s+(\w+)/i);
+            if (tableMatch) tables.push(tableMatch[1]);
+            const formMatch = line.match(/FORM\s+(\w+)/i);
+            if (formMatch) forms.push(formMatch[1]);
+        }
+
+        return {
+            documentTitle: `Business Requirements Document - ${objectName}`,
+            documentVersion: '1.0',
+            preparedDate: new Date().toLocaleDateString(),
+
+            executiveSummary: `This document describes the business requirements for the SAP ABAP custom development "${objectName}" (${objectType || 'Program'}). ${title || 'This object'} implements custom business logic within the SAP system. The program contains ${totalLines} lines of code across ${forms.length || 1} functional sections. This analysis identifies the key business processes, data flows, and integration points.`,
+
+            businessOverview: {
+                purpose: `${objectName} is a custom ABAP development that ${title || 'implements specific business logic for the organization'}. It processes data from SAP database tables and produces output for business users.`,
+                businessProcess: 'Custom Business Process - Data Processing & Reporting',
+                module: 'Cross-Module (Custom Development)',
+                stakeholders: ['Business Users', 'SAP Functional Team', 'IT Development Team'],
+                businessBenefit: 'Automates manual business processes, improves data accuracy, and reduces processing time.'
+            },
+
+            functionalRequirements: [
+                {
+                    reqId: 'FR-001',
+                    title: 'Data Selection & Retrieval',
+                    description: `The program retrieves data from SAP database tables (${tables.join(', ') || 'various tables'}) based on user-specified selection criteria.`,
+                    businessRule: 'Only records matching the selection criteria are processed',
+                    priority: 'High',
+                    codeReference: 'Main program / data retrieval section'
+                },
+                {
+                    reqId: 'FR-002',
+                    title: 'Data Processing Logic',
+                    description: 'The retrieved data undergoes business-specific transformations and validations before output generation.',
+                    businessRule: 'All data must pass validation checks before processing',
+                    priority: 'High',
+                    codeReference: forms.length > 0 ? `FORM ${forms[0]}` : 'Processing section'
+                },
+                {
+                    reqId: 'FR-003',
+                    title: 'Output Generation',
+                    description: 'Processed results are displayed to the user via standard SAP output mechanisms (WRITE statements / ALV grid).',
+                    businessRule: 'Output format must meet business reporting requirements',
+                    priority: 'Medium',
+                    codeReference: 'Output / display section'
+                }
+            ],
+
+            dataSpecification: {
+                inputData: [
+                    {
+                        fieldName: 'Selection Parameters',
+                        sapTable: tables[0] || 'Various',
+                        businessMeaning: 'User-specified filter criteria for data selection',
+                        mandatory: true,
+                        validationRules: 'Must be valid values in the respective SAP tables'
+                    }
+                ],
+                outputData: [
+                    {
+                        fieldName: 'Processing Results',
+                        description: 'Processed and validated business data',
+                        format: 'List / ALV Report',
+                        businessUse: 'Business reporting and decision making'
+                    }
+                ],
+                tablesUsed: tables.map((t, i) => ({
+                    tableName: t,
+                    tableDescription: `SAP Table ${t}`,
+                    usage: i === 0 ? 'Read' : 'Read',
+                    businessEntity: `Business data entity from ${t}`
+                }))
+            },
+
+            selectionScreen: {
+                description: 'The program provides a selection screen for users to specify processing parameters and filter criteria.',
+                parameters: [
+                    {
+                        paramName: 'Selection Range',
+                        type: 'SELECT-OPTIONS / PARAMETERS',
+                        description: 'Primary selection criteria for data filtering',
+                        mandatory: false,
+                        defaultValue: 'All records'
+                    }
+                ]
+            },
+
+            businessRules: [
+                {
+                    ruleId: 'BR-001',
+                    ruleName: 'Data Validation',
+                    description: 'All input data must be validated before processing to ensure data integrity.',
+                    condition: 'When data is retrieved from database tables',
+                    action: 'Validate fields and reject invalid records with appropriate error messages'
+                },
+                {
+                    ruleId: 'BR-002',
+                    ruleName: 'Processing Logic',
+                    description: 'Business-specific transformation rules applied to the selected data.',
+                    condition: 'After data passes validation',
+                    action: 'Apply business transformations and generate output'
+                }
+            ],
+
+            integrationPoints: [
+                {
+                    system: 'SAP Database',
+                    type: 'Direct DB Access',
+                    direction: 'Inbound',
+                    description: `Reads from SAP tables: ${tables.join(', ') || 'database tables'}`,
+                    dataExchanged: 'Business transaction data'
+                }
+            ],
+
+            authorization: {
+                description: 'Standard SAP authorization checks are applied based on the user\'s role and permissions.',
+                checks: [
+                    {
+                        authObject: 'S_PROGRAM',
+                        description: 'Program execution authorization',
+                        fields: 'P_ACTION, P_GROUP'
+                    }
+                ]
+            },
+
+            errorHandling: [
+                {
+                    errorCode: 'E001',
+                    description: 'No data found for given selection criteria',
+                    businessImpact: 'User cannot process data - may need to adjust selection parameters',
+                    resolution: 'Verify selection criteria and ensure data exists in the system'
+                },
+                {
+                    errorCode: 'E002',
+                    description: 'Authorization failure',
+                    businessImpact: 'User cannot execute the program',
+                    resolution: 'Contact SAP Basis team to assign appropriate role'
+                }
+            ],
+
+            testScenarios: [
+                {
+                    scenarioId: 'TS-001',
+                    title: 'Successful Data Processing',
+                    precondition: 'Valid data exists in SAP tables',
+                    steps: '1. Execute program\n2. Enter valid selection criteria\n3. Run report',
+                    expectedResult: 'Program displays processed results correctly'
+                },
+                {
+                    scenarioId: 'TS-002',
+                    title: 'No Data Found',
+                    precondition: 'No matching data for criteria',
+                    steps: '1. Execute program\n2. Enter criteria with no matching data\n3. Run report',
+                    expectedResult: 'Appropriate "No data found" message displayed'
+                }
+            ],
+
+            appendix: {
+                technicalNotes: `Object: ${objectName}, Type: ${objectType || 'Program'}, Total Lines: ${totalLines}. This is a mock analysis generated in development mode. Deploy with ANTHROPIC_API_KEY to get real Claude AI analysis.`,
+                assumptions: [
+                    'This is a MOCK analysis for development/testing purposes',
+                    'Real analysis requires a valid Anthropic Claude API key',
+                    'The actual Claude AI analysis will provide much more detailed and accurate results'
+                ],
+                openQuestions: [
+                    'What specific business KPIs does this report support?',
+                    'Are there any downstream systems that consume this output?',
+                    'What is the expected data volume and performance requirement?'
+                ]
+            },
+
+            modelUsed: 'mock-development-mode',
+            tokensUsed: 0
+        };
+    }
+
+    /**
      * Default BRD sections structure
      */
     _getDefaultSections() {
@@ -393,4 +604,3 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
 }
 
 module.exports = ClaudeAnalyzer;
-

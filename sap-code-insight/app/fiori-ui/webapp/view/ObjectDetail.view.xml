@@ -24,6 +24,13 @@
                 </contentLeft>
                 <contentRight>
                     <Button
+                        text="Templates"
+                        icon="sap-icon://attachment-html"
+                        type="Transparent"
+                        press=".onOpenTemplateManager"
+                        visible="{viewModel>/isAdmin}"
+                        tooltip="Manage Document Templates"/>
+                    <Button
                         text="Analyze Code"
                         icon="sap-icon://inspection"
                         type="Default"

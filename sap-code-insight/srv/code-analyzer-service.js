@@ -250,6 +250,7 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
 
     /**
      * Analyze code with Claude without generating document
+     * Returns structured BRD-like analysis as JSON string
      */
     async _analyzeCode(objectName, category, analysisType) {
         try {
@@ -265,6 +266,7 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                 analysisType: analysisType || 'BRD'
             });
 
+            // Return full structured analysis as JSON string
             return JSON.stringify(analysis);
 
         } catch (error) {
