@@ -1,9 +1,10 @@
 namespace abap.analyzer;
 
+using from './schema';
 using { cuid, managed } from '@sap/cds/common';
 
 // ═══════════════════════════════════════════════════════════════════════
-// MULTI-TENANT AWARE: All entities include tenantId for data isolation
+// MULTI-TENANT AWARE: Extend base entities with tenantId for isolation
 // HANA Row-Level Security enforces tenant boundaries at DB level
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -12,8 +13,13 @@ aspect tenantAware {
     tenantId : String(36) @mandatory @readonly;
 }
 
+// ─── Extend base entities with tenant isolation ───
+extend CustomObjects with tenantAware;
+extend DocumentGenerationLog with tenantAware;
+extend DocumentTemplates with tenantAware;
+
 // ═══════════════════════════════════════════════════════════════════════
-// TENANT MANAGEMENT
+// TENANT MANAGEMENT (new entities)
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
@@ -71,58 +77,6 @@ entity TenantUsers : cuid, managed, tenantAware {
     role       : String(20)   @title: 'Role'; // ADMIN, DEVELOPER, VIEWER
     isActive   : Boolean default true;
     lastLogin  : Timestamp;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// CORE BUSINESS ENTITIES (Tenant-Isolated)
-// ═══════════════════════════════════════════════════════════════════════
-
-/**
- * Cache of custom ABAP objects fetched from On-Premise
- */
-entity CustomObjects : cuid, managed, tenantAware {
-    objectName      : String(120)   @title: 'Object Name';
-    objectType      : String(10)    @title: 'Object Type';
-    objectTypeText  : String(100)   @title: 'Type Description';
-    category        : String(30)    @title: 'Category';
-    subType         : String(1)     @title: 'Sub Type';
-    package         : String(30)    @title: 'Package';
-    createdByAbap   : String(12)    @title: 'ABAP Created By';
-    createdOnAbap   : Date          @title: 'ABAP Created On';
-    changedByAbap   : String(12)    @title: 'ABAP Changed By';
-    changedOnAbap   : Date          @title: 'ABAP Changed On';
-    lineCount       : Integer       @title: 'Line Count';
-    lastSynced      : Timestamp     @title: 'Last Synced';
-}
-
-/**
- * Document generation audit log
- */
-entity DocumentGenerationLog : cuid, managed, tenantAware {
-    objectName      : String(120);
-    objectType      : String(30);
-    documentType    : String(10);
-    templateUsed    : String(50);
-    claudeModel     : String(50);
-    tokensUsed      : Integer;
-    generationTime  : Integer;
-    status          : String(20);
-    errorMessage    : String(500);
-    generatedBy     : String(100);
-    generatedAt     : Timestamp;
-}
-
-/**
- * Document templates (tenant-customizable)
- */
-entity DocumentTemplates : cuid, managed, tenantAware {
-    templateName    : String(100);
-    templateType    : String(20);
-    description     : String(500);
-    promptTemplate  : LargeString;
-    sections        : LargeString;
-    isActive        : Boolean;
-    isDefault       : Boolean default false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -200,4 +154,3 @@ entity SubscriptionPlans : cuid, managed {
     canUseOwnAPIKey     : Boolean default false;
     pricePerMonth       : Decimal(10,2);
 }
-
