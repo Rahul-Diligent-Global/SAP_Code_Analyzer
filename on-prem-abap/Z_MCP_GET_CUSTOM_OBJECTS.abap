@@ -167,7 +167,7 @@ FUNCTION z_mcp_get_custom_objects.
     " New BADIs (Enhancement Spot based)
     CLEAR lt_objects.
     SELECT b~exit_name AS object_name,
-           'BADI2'     AS object_type
+           'BADI'      AS object_type
       FROM sxc_exit AS b
       WHERE b~exit_name LIKE @lv_prefix
       INTO CORRESPONDING FIELDS OF TABLE @lt_objects
