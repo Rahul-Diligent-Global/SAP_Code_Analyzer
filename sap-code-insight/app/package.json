@@ -1,0 +1,11 @@
+{
+  "name": "codeinsight-app",
+  "version": "1.0.0",
+  "description": "SAP Code Insight - App Router",
+  "dependencies": {
+    "@sap/approuter": "^16"
+  },
+  "scripts": {
+    "start": "node node_modules/@sap/approuter/approuter.js"
+  }
+}
