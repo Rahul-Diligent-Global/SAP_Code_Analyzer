@@ -65,12 +65,25 @@ class SAPConnector {
     }
 
     /**
+     * Check if running in mock mode (local dev without SAP system)
+     */
+    get isMockMode() {
+        return process.env.MOCK_SAP_DATA === 'true' ||
+               (!process.env.SAP_DESTINATION && !this.tenantId && process.env.CDS_ENV === 'development');
+    }
+
+    /**
      * Call RFC Z_MCP_GET_CUSTOM_OBJECTS
      */
     async getCustomObjects(params) {
         const { ivObjectType = 'ALL', ivNamespace = 'Z', ivMaxRows = 500 } = params;
-        const destName = await this.getDestinationName();
 
+        if (this.isMockMode) {
+            LOG.info('MOCK MODE: Returning sample ABAP objects');
+            return this._getMockObjects(ivObjectType, ivNamespace);
+        }
+
+        const destName = await this.getDestinationName();
         LOG.info(`Calling Z_MCP_GET_CUSTOM_OBJECTS via ${destName}: type=${ivObjectType}, ns=${ivNamespace}`);
 
         return await this._callRFC(destName, 'Z_MCP_GET_CUSTOM_OBJECTS', {
@@ -84,8 +97,12 @@ class SAPConnector {
      * Call RFC Z_MCP_GET_SOURCE_CODE
      */
     async getSourceCode(objectName, category) {
-        const destName = await this.getDestinationName();
+        if (this.isMockMode) {
+            LOG.info(`MOCK MODE: Returning sample source for ${objectName}`);
+            return this._getMockSourceCode(objectName, category);
+        }
 
+        const destName = await this.getDestinationName();
         LOG.info(`Calling Z_MCP_GET_SOURCE_CODE via ${destName}: name=${objectName}, cat=${category}`);
 
         return await this._callRFC(destName, 'Z_MCP_GET_SOURCE_CODE', {
@@ -248,6 +265,97 @@ class SAPConnector {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&apos;');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MOCK DATA (for local development without SAP system)
+    // ═══════════════════════════════════════════════════════════════
+
+    _getMockObjects(objectType, namespace) {
+        const mockData = [
+            { objectName: 'ZSALES_ORDER_PROC', objectType: 'PROG', objectTypeText: 'Program', category: 'PROGRAM', subType: '1', package: 'ZSALES', createdBy: 'DEVELOPER1', createdOn: '2024-01-15' },
+            { objectName: 'ZCL_MATERIAL_HELPER', objectType: 'CLAS', objectTypeText: 'Class', category: 'CLASS', subType: '', package: 'ZMATERIAL', createdBy: 'DEVELOPER2', createdOn: '2024-02-20' },
+            { objectName: 'ZFM_GET_CUSTOMER', objectType: 'FUGR', objectTypeText: 'Function Group', category: 'FUNCTION', subType: '', package: 'ZCUSTOMER', createdBy: 'DEVELOPER1', createdOn: '2024-03-10' },
+            { objectName: 'ZBADI_ORDER_CHECK', objectType: 'BADI', objectTypeText: 'BAdI Implementation', category: 'BADI', subType: '', package: 'ZSALES', createdBy: 'DEVELOPER3', createdOn: '2024-04-05' },
+            { objectName: 'ZINVOICE_REPORT', objectType: 'PROG', objectTypeText: 'Program', category: 'PROGRAM', subType: '1', package: 'ZFINANCE', createdBy: 'DEVELOPER2', createdOn: '2024-05-12' },
+            { objectName: 'ZCL_API_GATEWAY', objectType: 'CLAS', objectTypeText: 'Class', category: 'CLASS', subType: '', package: 'ZINTEGRATION', createdBy: 'DEVELOPER1', createdOn: '2024-06-01' },
+            { objectName: 'ZFM_CALC_PRICING', objectType: 'FUGR', objectTypeText: 'Function Group', category: 'FUNCTION', subType: '', package: 'ZSALES', createdBy: 'DEVELOPER3', createdOn: '2024-06-15' },
+            { objectName: 'ZDELIVERY_MONITOR', objectType: 'PROG', objectTypeText: 'Program', category: 'PROGRAM', subType: '1', package: 'ZLOGISTICS', createdBy: 'DEVELOPER2', createdOn: '2024-07-20' },
+        ];
+
+        let filtered = mockData;
+        if (objectType !== 'ALL') {
+            filtered = mockData.filter(o => o.objectType === objectType);
+        }
+
+        return {
+            evTotalCount: filtered.length,
+            etObjects: filtered
+        };
+    }
+
+    _getMockSourceCode(objectName, category) {
+        const mockCode = `REPORT ${objectName}.
+*&---------------------------------------------------------------------*
+*& Report ${objectName}
+*& Sample mock code for local development testing
+*&---------------------------------------------------------------------*
+
+DATA: lv_count   TYPE i,
+      lt_data    TYPE TABLE OF string,
+      lv_message TYPE string.
+
+START-OF-SELECTION.
+
+  WRITE: / 'Starting processing for:', '${objectName}'.
+
+  PERFORM get_data CHANGING lt_data.
+  PERFORM process_data USING lt_data CHANGING lv_count.
+
+  lv_message = |Processed { lv_count } records successfully.|.
+  WRITE: / lv_message.
+
+*&---------------------------------------------------------------------*
+FORM get_data CHANGING ct_data TYPE TABLE.
+  " Fetch data from database
+  SELECT * FROM mara INTO TABLE @DATA(lt_mara)
+    WHERE matnr LIKE 'Z%'
+    ORDER BY matnr.
+
+  LOOP AT lt_mara INTO DATA(ls_mara).
+    APPEND ls_mara-matnr TO ct_data.
+  ENDLOOP.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+FORM process_data USING it_data TYPE TABLE
+                  CHANGING cv_count TYPE i.
+  LOOP AT it_data INTO DATA(lv_entry).
+    cv_count = cv_count + 1.
+    WRITE: / 'Processing:', lv_entry.
+  ENDLOOP.
+ENDFORM.`;
+
+        const lines = mockCode.split('\n');
+        return {
+            evTitle: `Report: ${objectName}`,
+            evObjectType: category || 'PROG',
+            evPackage: 'ZLOCAL',
+            evAuthor: 'DEVELOPER1',
+            evCreatedOn: '2024-01-15',
+            etSourceCode: lines.map((line, idx) => ({
+                lineNumber: idx + 1,
+                sourceLine: line,
+                includeName: objectName,
+                section: 'MAIN'
+            })),
+            etIncludes: [{
+                includeName: objectName,
+                includeType: 'MAIN',
+                parentObject: objectName,
+                lineCount: lines.length
+            }]
+        };
     }
 }
 
