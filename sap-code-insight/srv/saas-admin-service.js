@@ -73,8 +73,7 @@ module.exports = class SaaSAdminService extends cds.ApplicationService {
 
                 // Test RFC connectivity
                 const SAPConnector = require('./lib/sap-connector');
-                const connector = new SAPConnector();
-                connector.destinationName = config.destinationName;
+                const connector = new SAPConnector(tenantId);
 
                 const result = await connector.getCustomObjects({
                     ivObjectType: 'PROG',

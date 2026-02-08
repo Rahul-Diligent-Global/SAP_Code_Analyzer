@@ -344,8 +344,7 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
             throw new Error('SAP system not configured. Please complete onboarding setup.');
         }
 
-        const sapConnector = new SAPConnector();
-        sapConnector.destinationName = tenantConfig.destinationName;
+        const sapConnector = new SAPConnector(tenantId);
 
         const result = await sapConnector.getCustomObjects({
             ivObjectType: filter.objectType || 'ALL',
@@ -379,8 +378,7 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
         const { TenantConfig } = this.entities;
         const tenantConfig = await SELECT.one.from(TenantConfig).where({ tenantId });
 
-        const sapConnector = new SAPConnector();
-        sapConnector.destinationName = tenantConfig?.destinationName || 'SAP_ONPREM_RFC';
+        const sapConnector = new SAPConnector(tenantId);
 
         const result = await sapConnector.getSourceCode(objectName, category);
 

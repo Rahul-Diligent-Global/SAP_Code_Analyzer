@@ -1,11 +1,17 @@
 /**
- * SAP On-Premise Connector
- * Handles RFC calls to SAP system via Cloud Connector + BTP Destination
+ * SAP On-Premise Connector (Multi-Tenant Aware)
  *
- * Prerequisites:
- * 1. Cloud Connector configured and connected to BTP subaccount
- * 2. BTP Destination "SAP_ONPREM_RFC" created with RFC connection details
- * 3. RFC function modules Z_MCP_GET_CUSTOM_OBJECTS and Z_MCP_GET_SOURCE_CODE deployed
+ * Each tenant has their OWN SAP system + destination.
+ * The destination name is resolved from TenantConfig.destinationName
+ * which is set during tenant onboarding via SaaS Admin Service.
+ *
+ * Flow:
+ *   Request comes in with JWT containing tenantId (zid claim)
+ *   -> Lookup TenantConfig.destinationName for that tenant
+ *   -> Call RFC via that tenant-specific BTP Destination
+ *   -> Cloud Connector routes to tenant's SAP system
+ *
+ * Single-tenant fallback: uses SAP_DESTINATION env variable
  */
 
 const cds = require('@sap/cds');
@@ -13,106 +19,99 @@ const LOG = cds.log('sap-connector');
 
 class SAPConnector {
 
-    constructor() {
-        this.destinationName = process.env.SAP_DESTINATION || 'SAP_ONPREM_RFC';
+    /**
+     * Create connector for a specific tenant
+     * @param {string} tenantId - optional, for multi-tenant mode
+     */
+    constructor(tenantId) {
+        this.tenantId = tenantId;
+        this._destinationName = null; // resolved lazily
+    }
+
+    /**
+     * Resolve the correct BTP destination for the current tenant
+     * Multi-tenant: reads from TenantConfig DB table
+     * Single-tenant: falls back to SAP_DESTINATION env variable
+     */
+    async getDestinationName() {
+        if (this._destinationName) return this._destinationName;
+
+        // Multi-tenant: look up tenant-specific destination
+        if (this.tenantId) {
+            try {
+                const db = await cds.connect.to('db');
+                const { TenantConfig } = db.entities('abap.analyzer');
+                const config = await db.run(
+                    SELECT.one.from(TenantConfig)
+                        .columns('destinationName')
+                        .where({ tenantId: this.tenantId })
+                );
+
+                if (config && config.destinationName) {
+                    this._destinationName = config.destinationName;
+                    LOG.info(`Tenant ${this.tenantId} -> destination: ${this._destinationName}`);
+                    return this._destinationName;
+                }
+
+                LOG.warn(`No destination configured for tenant ${this.tenantId}, falling back to env`);
+            } catch (err) {
+                LOG.warn(`Could not resolve tenant destination: ${err.message}, using fallback`);
+            }
+        }
+
+        // Single-tenant fallback
+        this._destinationName = process.env.SAP_DESTINATION || 'S2A';
+        return this._destinationName;
     }
 
     /**
      * Call RFC Z_MCP_GET_CUSTOM_OBJECTS
-     * Returns list of all custom ABAP objects
      */
     async getCustomObjects(params) {
         const { ivObjectType = 'ALL', ivNamespace = 'Z', ivMaxRows = 500 } = params;
+        const destName = await this.getDestinationName();
 
-        LOG.info(`Calling Z_MCP_GET_CUSTOM_OBJECTS: type=${ivObjectType}, ns=${ivNamespace}`);
+        LOG.info(`Calling Z_MCP_GET_CUSTOM_OBJECTS via ${destName}: type=${ivObjectType}, ns=${ivNamespace}`);
 
-        try {
-            // ─── Option A: Via CAP remote service (OData wrapper around RFC) ───
-            // If you expose the RFC as OData service via SAP Gateway (recommended)
-            const sapService = await cds.connect.to('SAP_ONPREM');
-
-            const result = await sapService.send({
-                method: 'POST',
-                path: '/GetCustomObjects',
-                data: {
-                    IvObjectType: ivObjectType,
-                    IvNamespace: ivNamespace,
-                    IvMaxRows: ivMaxRows
-                }
-            });
-
-            return this._mapObjectsResult(result);
-
-        } catch (odataError) {
-            LOG.warn('OData call failed, trying direct RFC via http-client...');
-
-            // ─── Option B: Direct RFC call via SAP Cloud SDK ───
-            // Use when RFC is exposed via ICF service (/sap/bc/srt/rfc/sap/)
-            try {
-                return await this._callRFCDirect('Z_MCP_GET_CUSTOM_OBJECTS', {
-                    IV_OBJECT_TYPE: ivObjectType,
-                    IV_NAMESPACE: ivNamespace,
-                    IV_MAX_ROWS: ivMaxRows
-                });
-            } catch (rfcError) {
-                LOG.error('Both OData and direct RFC calls failed');
-                throw rfcError;
-            }
-        }
+        return await this._callRFC(destName, 'Z_MCP_GET_CUSTOM_OBJECTS', {
+            IV_OBJECT_TYPE: ivObjectType,
+            IV_NAMESPACE: ivNamespace,
+            IV_MAX_ROWS: ivMaxRows
+        }, this._mapObjectsResult);
     }
 
     /**
      * Call RFC Z_MCP_GET_SOURCE_CODE
-     * Returns complete source code for an ABAP object
      */
     async getSourceCode(objectName, category) {
-        LOG.info(`Calling Z_MCP_GET_SOURCE_CODE: name=${objectName}, cat=${category}`);
+        const destName = await this.getDestinationName();
 
-        try {
-            // Option A: Via OData
-            const sapService = await cds.connect.to('SAP_ONPREM');
+        LOG.info(`Calling Z_MCP_GET_SOURCE_CODE via ${destName}: name=${objectName}, cat=${category}`);
 
-            const result = await sapService.send({
-                method: 'POST',
-                path: '/GetSourceCode',
-                data: {
-                    IvObjectName: objectName,
-                    IvCategory: category
-                }
-            });
-
-            return this._mapSourceCodeResult(result);
-
-        } catch (odataError) {
-            LOG.warn('OData call failed for source code, trying direct RFC...');
-
-            try {
-                return await this._callRFCDirect('Z_MCP_GET_SOURCE_CODE', {
-                    IV_OBJECT_NAME: objectName,
-                    IV_CATEGORY: category
-                });
-            } catch (rfcError) {
-                throw rfcError;
-            }
-        }
+        return await this._callRFC(destName, 'Z_MCP_GET_SOURCE_CODE', {
+            IV_OBJECT_NAME: objectName,
+            IV_CATEGORY: category
+        }, this._mapSourceCodeResult);
     }
 
     /**
-     * Direct RFC call via HTTP (SOAP/RFC over HTTP)
-     * Uses BTP Destination with Cloud Connector
+     * Call RFC via SOAP over HTTP through BTP Destination + Cloud Connector
      */
-    async _callRFCDirect(functionName, params) {
-        // Using @sap-cloud-sdk/http-client for destination-based calls
+    async _callRFC(destinationName, functionName, params, mapFn) {
         const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
         const { getDestination } = require('@sap-cloud-sdk/connectivity');
 
-        const destination = await getDestination({ destinationName: this.destinationName });
+        const destination = await getDestination({ destinationName });
 
         if (!destination) {
-            throw new Error(`Destination '${this.destinationName}' not found. Please configure it in BTP cockpit.`);
+            throw new Error(
+                `Destination '${destinationName}' not found. ` +
+                (this.tenantId
+                    ? 'Tenant admin must configure SAP connection via Admin UI.'
+                    : 'Configure SAP_DESTINATION env variable or create destination in BTP.')
+            );
         }
 
-        // Build SOAP envelope for RFC call
         const soapBody = this._buildSOAPEnvelope(functionName, params);
 
         const response = await executeHttpRequest(destination, {
@@ -126,10 +125,11 @@ class SAPConnector {
         });
 
         if (response.status !== 200) {
-            throw new Error(`RFC call failed with status ${response.status}: ${response.data}`);
+            throw new Error(`RFC ${functionName} failed (HTTP ${response.status})`);
         }
 
-        return this._parseSOAPResponse(functionName, response.data);
+        const parsed = await this._parseSOAPResponse(functionName, response.data);
+        return mapFn ? mapFn(parsed) : parsed;
     }
 
     /**
@@ -154,10 +154,9 @@ class SAPConnector {
     }
 
     /**
-     * Parse SOAP response from RFC
+     * Parse SOAP response
      */
     _parseSOAPResponse(functionName, xmlData) {
-        // Simple XML parsing (in production, use a proper XML parser like fast-xml-parser)
         const xml2js = require('xml2js');
         const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: true });
 
@@ -167,7 +166,6 @@ class SAPConnector {
                     reject(new Error(`Failed to parse SOAP response: ${err.message}`));
                     return;
                 }
-
                 try {
                     const body = result['soap-env:Envelope']['soap-env:Body'];
                     const response = body[`n0:${functionName}Response`] ||
@@ -181,15 +179,15 @@ class SAPConnector {
     }
 
     /**
-     * Map raw RFC result to normalized objects format
+     * Map RFC result -> normalized custom objects
      */
     _mapObjectsResult(result) {
-        const objects = [];
         const rawObjects = result.EtObjects || result.ET_OBJECTS || [];
         const items = Array.isArray(rawObjects) ? rawObjects : [rawObjects];
 
-        for (const obj of items) {
-            objects.push({
+        const objects = items
+            .filter(obj => obj)
+            .map(obj => ({
                 objectName: obj.ObjectName || obj.OBJECT_NAME,
                 objectType: obj.ObjectType || obj.OBJECT_TYPE,
                 objectTypeText: obj.ObjectTypeText || obj.OBJECT_TYPE_TEXT,
@@ -198,8 +196,7 @@ class SAPConnector {
                 package: obj.Package || obj.PACKAGE,
                 createdBy: obj.CreatedBy || obj.CREATED_BY,
                 createdOn: obj.CreatedOn || obj.CREATED_ON
-            });
-        }
+            }));
 
         return {
             evTotalCount: result.EvTotalCount || result.EV_TOTAL_COUNT || objects.length,
@@ -208,29 +205,30 @@ class SAPConnector {
     }
 
     /**
-     * Map raw RFC result to normalized source code format
+     * Map RFC result -> normalized source code
      */
     _mapSourceCodeResult(result) {
-        const sourceLines = [];
         const rawLines = result.EtSourceCode || result.ET_SOURCE_CODE || [];
         const items = Array.isArray(rawLines) ? rawLines : [rawLines];
 
-        for (const line of items) {
-            sourceLines.push({
+        const sourceLines = items
+            .filter(line => line)
+            .map(line => ({
                 lineNumber: parseInt(line.LineNumber || line.LINE_NUMBER || 0),
                 sourceLine: line.SourceLine || line.SOURCE_LINE || '',
                 includeName: line.IncludeName || line.INCLUDE_NAME || '',
                 section: line.Section || line.SECTION || ''
-            });
-        }
+            }));
 
         const rawIncludes = result.EtIncludes || result.ET_INCLUDES || [];
-        const includes = (Array.isArray(rawIncludes) ? rawIncludes : [rawIncludes]).map(inc => ({
-            includeName: inc.IncludeName || inc.INCLUDE_NAME,
-            includeType: inc.IncludeType || inc.INCLUDE_TYPE,
-            parentObject: inc.ParentObject || inc.PARENT_OBJECT,
-            lineCount: parseInt(inc.LineCount || inc.LINE_COUNT || 0)
-        }));
+        const includes = (Array.isArray(rawIncludes) ? rawIncludes : [rawIncludes])
+            .filter(inc => inc)
+            .map(inc => ({
+                includeName: inc.IncludeName || inc.INCLUDE_NAME,
+                includeType: inc.IncludeType || inc.INCLUDE_TYPE,
+                parentObject: inc.ParentObject || inc.PARENT_OBJECT,
+                lineCount: parseInt(inc.LineCount || inc.LINE_COUNT || 0)
+            }));
 
         return {
             evTitle: result.EvTitle || result.EV_TITLE || '',
@@ -254,4 +252,3 @@ class SAPConnector {
 }
 
 module.exports = SAPConnector;
-
