@@ -431,10 +431,10 @@ FUNCTION z_mcp_get_source_code.
         SELECT *
           FROM sxc_attr
           INTO TABLE lt_badi_impl
-          WHERE exit_name = iv_object_name.
+          WHERE name = iv_object_name.
 
         LOOP AT lt_badi_impl INTO ls_badi_impl.
-          lv_badi_cls = ls_badi_impl-imp_clsname.
+          lv_badi_cls = ls_badi_impl-imp_name.
           CONCATENATE lv_badi_cls '==============CCIMP' INTO lv_badi_class_def.
           CLEAR lt_source.
           READ REPORT lv_badi_class_def INTO lt_source.
