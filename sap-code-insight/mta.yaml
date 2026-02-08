@@ -6,6 +6,13 @@ description: SAP Code Insight - AI-Powered ABAP Code Analysis & BRD Generator
 parameters:
   enable-parallel-deployments: true
 
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+
 modules:
   # ═══════════════════════════════════════════════════════════
   # CAP Backend Service
@@ -22,6 +29,8 @@ modules:
       CLAUDE_MAX_TOKENS: "8192"
       CLAUDE_API_URL: "https://api.anthropic.com/v1/messages"
       SAP_DESTINATION: "S2A"
+    build-parameters:
+      builder: npm
     requires:
       - name: codeinsight-auth
       - name: codeinsight-db
@@ -58,6 +67,9 @@ modules:
     path: gen/db
     parameters:
       buildpack: nodejs_buildpack
+    build-parameters:
+      builder: custom
+      commands: []
     requires:
       - name: codeinsight-db
 
