@@ -84,7 +84,6 @@ FUNCTION z_mcp_get_custom_objects.
            t~object    AS object_type,
            t~devclass  AS package,
            t~author    AS created_by,
-           c~clsname   AS object_name,
            t~created_on AS created_on
       FROM tadir AS t
       INNER JOIN seoclass AS c ON c~clsname = t~obj_name
@@ -156,7 +155,7 @@ FUNCTION z_mcp_get_custom_objects.
            s~text       AS object_type_text
       FROM sxs_attrt AS s
       WHERE s~exit_name LIKE @lv_prefix
-        AND s~langu = @sy-langu
+        AND s~sprsl = @sy-langu
       INTO CORRESPONDING FIELDS OF TABLE @lt_objects
       UP TO @iv_max_rows ROWS.
 
@@ -167,10 +166,10 @@ FUNCTION z_mcp_get_custom_objects.
 
     " New BADIs (Enhancement Spot based)
     CLEAR lt_objects.
-    SELECT b~badi_name AS object_name,
+    SELECT b~exit_name AS object_name,
            'BADI2'     AS object_type
       FROM sxc_exit AS b
-      WHERE b~badi_name LIKE @lv_prefix
+      WHERE b~exit_name LIKE @lv_prefix
       INTO CORRESPONDING FIELDS OF TABLE @lt_objects
       UP TO @iv_max_rows ROWS.
 
