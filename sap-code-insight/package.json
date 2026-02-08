@@ -18,6 +18,7 @@
     "@sap/xsenv": "^5"
   },
   "devDependencies": {
+    "@cap-js/sqlite": "^2",
     "@sap/cds-dk": "^8",
     "@sap/ux-specification": "latest",
     "rimraf": "^5"
