@@ -2,6 +2,11 @@
     "xsappname": "sap-code-insight",
     "tenant-mode": "dedicated",
     "description": "SAP Code Insight Security Configuration",
+    "oauth2-configuration": {
+        "redirect-uris": [
+            "https://*.cfapps.eu10-005.hana.ondemand.com/**"
+        ]
+    },
     "scopes": [
         {
             "name": "$XSAPPNAME.Viewer",
@@ -37,4 +42,3 @@
         }
     ]
 }
-
