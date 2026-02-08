@@ -112,43 +112,61 @@ class SAPConnector {
     }
 
     /**
-     * Fetch CSRF token from SAP using GET on /sap/bc/ping
+     * Fetch CSRF token from SAP system.
      *
-     * The SAP Cloud SDK's built-in CSRF middleware uses HEAD on the same
-     * URL as the request, but SOAP/RFC endpoints reject HEAD with 403.
-     * Instead, we fetch the token from /sap/bc/ping which supports GET.
+     * Tries multiple URLs since Cloud Connector may not expose all paths:
+     * 1. GET on the target RFC URL itself (most reliable)
+     * 2. GET /sap/bc/ping
+     * 3. GET /sap/
+     *
+     * The SDK's built-in CSRF middleware is disabled because it uses HEAD
+     * which SOAP endpoints reject with 403. We use GET instead.
      */
-    async _fetchCsrfToken(destination) {
+    async _fetchCsrfToken(destination, targetUrl) {
         const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
 
-        try {
-            const response = await executeHttpRequest(
-                destination,
-                {
-                    method: 'GET',
-                    url: '/sap/bc/ping',
-                    headers: {
-                        'X-CSRF-Token': 'Fetch'
-                    }
-                },
-                { fetchCsrfToken: false }
-            );
+        const urlsToTry = [
+            targetUrl,          // The RFC URL itself (GET should work)
+            '/sap/bc/ping',     // Standard SAP ping service
+            '/sap/'             // SAP root
+        ];
 
-            const token = response.headers['x-csrf-token'];
-            const cookies = response.headers['set-cookie'];
-            const cookieStr = Array.isArray(cookies)
-                ? cookies.map(c => c.split(';')[0]).join('; ')
-                : '';
+        for (const url of urlsToTry) {
+            try {
+                LOG.info(`Attempting CSRF token fetch via GET ${url}`);
+                const response = await executeHttpRequest(
+                    destination,
+                    {
+                        method: 'GET',
+                        url: url,
+                        headers: {
+                            'X-CSRF-Token': 'Fetch'
+                        }
+                    },
+                    { fetchCsrfToken: false }
+                );
 
-            if (token) {
-                LOG.info('CSRF token fetched successfully from /sap/bc/ping');
+                const token = response.headers['x-csrf-token'];
+                const cookies = response.headers['set-cookie'];
+                const cookieStr = Array.isArray(cookies)
+                    ? cookies.map(c => c.split(';')[0]).join('; ')
+                    : '';
+
+                if (token) {
+                    LOG.info(`CSRF token fetched successfully from ${url}`);
+                    return { token, cookies: cookieStr };
+                }
+                LOG.warn(`GET ${url} succeeded but no X-CSRF-Token in response headers`);
+
+            } catch (err) {
+                const status = err.response?.status || 'unknown';
+                LOG.warn(`CSRF token fetch from ${url} failed (HTTP ${status}): ${err.message}`);
+                // Continue to next URL
             }
-            return { token: token || null, cookies: cookieStr };
-
-        } catch (err) {
-            LOG.warn(`CSRF token fetch from /sap/bc/ping failed: ${err.message}`);
-            return { token: null, cookies: '' };
         }
+
+        LOG.error('All CSRF token fetch attempts failed. POST will likely fail with 403.');
+        return { token: null, cookies: '' };
     }
 
     /**
@@ -157,13 +175,14 @@ class SAPConnector {
      * CSRF handling:
      * - The SDK's built-in CSRF middleware is DISABLED (fetchCsrfToken: false)
      *   because it sends HEAD to the SOAP URL which returns 403
-     * - Instead, we manually fetch the CSRF token from /sap/bc/ping (GET)
-     *   and include it in the SOAP POST headers
+     * - Instead, we manually fetch the CSRF token via GET and include it
+     *   in the SOAP POST headers
      */
     async _callRFC(destinationName, functionName, params, mapFn) {
         const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
         const { getDestination } = require('@sap-cloud-sdk/connectivity');
 
+        LOG.info(`_callRFC: Resolving destination '${destinationName}' for ${functionName}`);
         const destination = await getDestination({ destinationName });
 
         if (!destination) {
@@ -175,11 +194,12 @@ class SAPConnector {
             );
         }
 
-        // Step 1: Fetch CSRF token from /sap/bc/ping (supports GET)
-        const csrf = await this._fetchCsrfToken(destination);
-
         const rfcUrl = `/sap/bc/srt/rfc/sap/${functionName.toLowerCase()}/`;
         const soapBody = this._buildSOAPEnvelope(functionName, params);
+
+        // Step 1: Fetch CSRF token via GET (try multiple URLs)
+        LOG.info(`_callRFC: Fetching CSRF token for ${rfcUrl}`);
+        const csrf = await this._fetchCsrfToken(destination, rfcUrl);
 
         // Step 2: Build headers with CSRF token + session cookies
         const headers = {
@@ -188,31 +208,46 @@ class SAPConnector {
         };
         if (csrf.token) {
             headers['X-CSRF-Token'] = csrf.token;
+            LOG.info('_callRFC: CSRF token included in POST headers');
+        } else {
+            LOG.warn('_callRFC: No CSRF token available, POST may fail');
         }
         if (csrf.cookies) {
             headers['Cookie'] = csrf.cookies;
         }
 
         // Step 3: Execute SOAP POST with SDK CSRF middleware disabled
-        const response = await executeHttpRequest(
-            destination,
-            {
-                method: 'POST',
-                url: rfcUrl,
-                headers,
-                data: soapBody
-            },
-            {
-                fetchCsrfToken: false
+        LOG.info(`_callRFC: Executing POST ${rfcUrl}`);
+        try {
+            const response = await executeHttpRequest(
+                destination,
+                {
+                    method: 'POST',
+                    url: rfcUrl,
+                    headers,
+                    data: soapBody
+                },
+                {
+                    fetchCsrfToken: false
+                }
+            );
+
+            if (response.status !== 200) {
+                throw new Error(`RFC ${functionName} failed (HTTP ${response.status})`);
             }
-        );
 
-        if (response.status !== 200) {
-            throw new Error(`RFC ${functionName} failed (HTTP ${response.status})`);
+            LOG.info(`_callRFC: ${functionName} succeeded`);
+            const parsed = await this._parseSOAPResponse(functionName, response.data);
+            return mapFn ? mapFn(parsed) : parsed;
+
+        } catch (err) {
+            const status = err.response?.status || 'unknown';
+            const respBody = err.response?.data
+                ? (typeof err.response.data === 'string' ? err.response.data.substring(0, 500) : JSON.stringify(err.response.data).substring(0, 500))
+                : 'no response body';
+            LOG.error(`_callRFC: POST ${rfcUrl} failed (HTTP ${status}). Response: ${respBody}`);
+            throw err;
         }
-
-        const parsed = await this._parseSOAPResponse(functionName, response.data);
-        return mapFn ? mapFn(parsed) : parsed;
     }
 
     /**
