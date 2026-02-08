@@ -112,14 +112,53 @@ class SAPConnector {
     }
 
     /**
+     * Fetch CSRF token from SAP using GET on /sap/bc/ping
+     *
+     * The SAP Cloud SDK's built-in CSRF middleware uses HEAD on the same
+     * URL as the request, but SOAP/RFC endpoints reject HEAD with 403.
+     * Instead, we fetch the token from /sap/bc/ping which supports GET.
+     */
+    async _fetchCsrfToken(destination) {
+        const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
+
+        try {
+            const response = await executeHttpRequest(
+                destination,
+                {
+                    method: 'GET',
+                    url: '/sap/bc/ping',
+                    headers: {
+                        'X-CSRF-Token': 'Fetch'
+                    }
+                },
+                { fetchCsrfToken: false }
+            );
+
+            const token = response.headers['x-csrf-token'];
+            const cookies = response.headers['set-cookie'];
+            const cookieStr = Array.isArray(cookies)
+                ? cookies.map(c => c.split(';')[0]).join('; ')
+                : '';
+
+            if (token) {
+                LOG.info('CSRF token fetched successfully from /sap/bc/ping');
+            }
+            return { token: token || null, cookies: cookieStr };
+
+        } catch (err) {
+            LOG.warn(`CSRF token fetch from /sap/bc/ping failed: ${err.message}`);
+            return { token: null, cookies: '' };
+        }
+    }
+
+    /**
      * Call RFC via SOAP over HTTP through BTP Destination + Cloud Connector
      *
-     * IMPORTANT: fetchCsrfToken is set to false because:
-     * - SAP SOAP/RFC endpoints do NOT support CSRF tokens
-     * - The SAP Cloud SDK's built-in CSRF middleware tries HEAD request
-     *   to fetch a token, but the SOAP endpoint rejects HEAD with 403
-     * - Authentication is handled via Basic Auth + Cloud Connector (SSL tunnel)
-     * - CSRF protection is not needed for server-to-server SOAP calls
+     * CSRF handling:
+     * - The SDK's built-in CSRF middleware is DISABLED (fetchCsrfToken: false)
+     *   because it sends HEAD to the SOAP URL which returns 403
+     * - Instead, we manually fetch the CSRF token from /sap/bc/ping (GET)
+     *   and include it in the SOAP POST headers
      */
     async _callRFC(destinationName, functionName, params, mapFn) {
         const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
@@ -136,18 +175,31 @@ class SAPConnector {
             );
         }
 
+        // Step 1: Fetch CSRF token from /sap/bc/ping (supports GET)
+        const csrf = await this._fetchCsrfToken(destination);
+
         const rfcUrl = `/sap/bc/srt/rfc/sap/${functionName.toLowerCase()}/`;
         const soapBody = this._buildSOAPEnvelope(functionName, params);
 
+        // Step 2: Build headers with CSRF token + session cookies
+        const headers = {
+            'Content-Type': 'text/xml; charset=utf-8',
+            'SOAPAction': `urn:sap-com:document:sap:rfc:functions:${functionName}`
+        };
+        if (csrf.token) {
+            headers['X-CSRF-Token'] = csrf.token;
+        }
+        if (csrf.cookies) {
+            headers['Cookie'] = csrf.cookies;
+        }
+
+        // Step 3: Execute SOAP POST with SDK CSRF middleware disabled
         const response = await executeHttpRequest(
             destination,
             {
                 method: 'POST',
                 url: rfcUrl,
-                headers: {
-                    'Content-Type': 'text/xml; charset=utf-8',
-                    'SOAPAction': `urn:sap-com:document:sap:rfc:functions:${functionName}`
-                },
+                headers,
                 data: soapBody
             },
             {
