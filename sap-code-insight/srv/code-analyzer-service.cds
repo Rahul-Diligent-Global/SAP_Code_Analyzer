@@ -71,12 +71,13 @@ service CodeAnalyzerService @(path: '/api/analyzer') {
     }
 
     type DocumentOptions {
-        documentType   : String(10);   // PDF or DOCX
-        analysisType   : String(20);   // BRD, FUNC_SPEC, TECH_SPEC, CODE_REVIEW
-        templateId     : UUID;         // Template to use
-        includeCode    : Boolean;      // Include source code in doc
-        detailLevel    : String(20);   // SUMMARY, DETAILED, COMPREHENSIVE
-        customPrompt   : String(2000); // Optional custom instructions
+        documentType     : String(10);   // PDF or DOCX
+        analysisType     : String(20);   // BRD, FUNC_SPEC, TECH_SPEC, CODE_REVIEW
+        templateId       : UUID;         // Template to use
+        includeCode      : Boolean;      // Include source code in doc
+        detailLevel      : String(20);   // SUMMARY, DETAILED, COMPREHENSIVE
+        customPrompt     : String(2000); // Optional custom instructions
+        referenceContent : LargeString;  // Reference template content (text or base64 docx)
     }
 
     // ═══════════════════════════════════════════════════════════════

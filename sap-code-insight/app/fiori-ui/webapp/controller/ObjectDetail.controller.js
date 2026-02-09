@@ -456,6 +456,8 @@ sap.ui.define([
         onGenerateDocx: function () { this._showGenerateDialog("DOCX", "BRD"); },
         onGeneratePdf: function () { this._showGenerateDialog("PDF", "BRD"); },
         onGenerateFuncSpec: function () { this._showGenerateDialog("DOCX", "FUNC_SPEC"); },
+        onGenerateTechSpec: function () { this._showGenerateDialog("DOCX", "TECH_SPEC"); },
+        onGenerateCodeReview: function () { this._showGenerateDialog("DOCX", "CODE_REVIEW"); },
 
         _showGenerateDialog: function (sDocType, sTemplate) {
             var that = this;
@@ -484,8 +486,16 @@ sap.ui.define([
                 });
             } catch (e) { /* templates not available */ }
 
+            var sDialogTitle = "Generate ";
+            switch (sTemplate) {
+                case "FUNC_SPEC": sDialogTitle += "Functional Specification"; break;
+                case "TECH_SPEC": sDialogTitle += "Technical Specification"; break;
+                case "CODE_REVIEW": sDialogTitle += "Code Review Report"; break;
+                default: sDialogTitle += "BRD Document"; break;
+            }
+
             var oDialog = new Dialog({
-                title: "Generate " + (sTemplate === "FUNC_SPEC" ? "Functional Specification" : "BRD Document"),
+                title: sDialogTitle,
                 type: "Message",
                 contentWidth: "520px",
                 content: [
@@ -494,6 +504,17 @@ sap.ui.define([
                         items: [
                             new Label({ text: "Document Template:", design: "Bold" }),
                             new Select("templateSelect", { selectedKey: "", width: "100%", items: aTemplateItems }),
+
+                            new Label({ text: "Document Type:", design: "Bold", class: "sapUiSmallMarginTop" }),
+                            new Select("docTypeSelect", {
+                                selectedKey: sTemplate || "BRD", width: "100%",
+                                items: [
+                                    new Item({ key: "BRD", text: "Business Requirements Document" }),
+                                    new Item({ key: "FUNC_SPEC", text: "Functional Specification" }),
+                                    new Item({ key: "TECH_SPEC", text: "Technical Specification" }),
+                                    new Item({ key: "CODE_REVIEW", text: "Code Review Report" })
+                                ]
+                            }),
 
                             new Label({ text: "Document Format:", design: "Bold", class: "sapUiSmallMarginTop" }),
                             new Select("docFormatSelect", {
@@ -532,8 +553,9 @@ sap.ui.define([
                         var bIncludeCode = sap.ui.getCore().byId("includeCodeCheck").getSelected();
                         var sCustomPrompt = sap.ui.getCore().byId("customPromptArea").getValue();
                         var sTemplateId = sap.ui.getCore().byId("templateSelect").getSelectedKey();
+                        var sDocTypeKey = sap.ui.getCore().byId("docTypeSelect").getSelectedKey();
                         oDialog.close();
-                        that._executeDocumentGeneration(sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId, sTemplate);
+                        that._executeDocumentGeneration(sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId, sDocTypeKey);
                     }
                 }),
                 endButton: new Button({ text: "Cancel", press: function () { oDialog.close(); } }),
@@ -545,6 +567,18 @@ sap.ui.define([
 
         _executeDocumentGeneration: function (sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId, sAnalysisType, bRetry) {
             var that = this;
+
+            // Look up reference content from local template model
+            var sReferenceContent = "";
+            if (sTemplateId) {
+                var aTemplates = this._oTemplateModel.getProperty("/templates") || [];
+                for (var i = 0; i < aTemplates.length; i++) {
+                    if (aTemplates[i].ID === sTemplateId && aTemplates[i].referenceContent) {
+                        sReferenceContent = aTemplates[i].referenceContent;
+                        break;
+                    }
+                }
+            }
 
             this._oBusyDialog.setText(
                 "Generating document...\n\n" +
@@ -566,7 +600,8 @@ sap.ui.define([
                 includeCode: bIncludeCode,
                 detailLevel: sDetailLevel,
                 customPrompt: sCustomPrompt || "",
-                templateId: sTemplateId || null
+                templateId: sTemplateId || null,
+                referenceContent: sReferenceContent || null
             });
 
             oContext.execute().then(function () {
@@ -821,25 +856,22 @@ sap.ui.define([
                             new VBox({
                                 items: [
                                     new sap.m.MessageStrip({
-                                        text: "Upload a reference document (.txt) and the AI will adopt its structure, tone, and formatting style. Save Word docs as .txt first, or paste content below.",
+                                        text: "Upload a reference document (.docx, .txt) and the AI will adopt its structure, tone, and formatting style when generating documents.",
                                         type: "Information", showIcon: true,
                                         class: "sapUiTinyMarginBottom"
                                     }),
                                     new sap.ui.unified.FileUploader("newTplRefFile", {
                                         name: "referenceFile",
                                         uploadOnChange: false,
-                                        fileType: "txt,docx,doc",
-                                        placeholder: "Choose reference document...",
+                                        fileType: "txt,docx",
+                                        placeholder: "Choose reference document (.docx or .txt)...",
                                         width: "100%",
                                         buttonText: "Browse",
                                         style: "Emphasized",
                                         change: function (oEvt) { that._onReferenceFileSelected(oEvt, "newTplRefContent", "newTplRefName"); }
                                     }),
                                     new Text("newTplRefName", { text: "", class: "sapUiTinyMarginTop" }),
-                                    new TextArea("newTplRefContent", {
-                                        placeholder: "Or paste reference document content here...",
-                                        rows: 4, width: "100%"
-                                    })
+                                    new TextArea("newTplRefContent", { visible: false, rows: 1, width: "100%" })
                                 ]
                             }),
 
@@ -975,6 +1007,32 @@ sap.ui.define([
                                 rows: 6, width: "100%"
                             }),
 
+                            new sap.ui.core.Title({ text: "Reference Document" }),
+                            new Label({ text: "Upload Reference" }),
+                            new VBox({
+                                items: [
+                                    new sap.m.MessageStrip({
+                                        text: "Upload a reference document (.docx, .txt) and the AI will adopt its structure, tone, and formatting style when generating documents.",
+                                        type: "Information", showIcon: true,
+                                        class: "sapUiTinyMarginBottom"
+                                    }),
+                                    new sap.ui.unified.FileUploader("editTplRefFile", {
+                                        name: "referenceFile",
+                                        uploadOnChange: false,
+                                        fileType: "txt,docx",
+                                        placeholder: "Choose reference document (.docx or .txt)...",
+                                        width: "100%",
+                                        buttonText: "Browse",
+                                        style: "Emphasized",
+                                        change: function (oEvt) { that._onReferenceFileSelected(oEvt, "editTplRefContent", "editTplRefName"); }
+                                    }),
+                                    new Text("editTplRefName", {
+                                        text: oTemplate.referenceFileName ? "Current: " + oTemplate.referenceFileName : "No reference document uploaded"
+                                    }),
+                                    new TextArea("editTplRefContent", { visible: false, value: oTemplate.referenceContent || "", rows: 1, width: "100%" })
+                                ]
+                            }),
+
                             new sap.ui.core.Title({ text: "Document Sections (Advanced)" }),
                             new Label({ text: "Custom Sections JSON" }),
                             new TextArea("editTplSections", {
@@ -996,6 +1054,8 @@ sap.ui.define([
                             description: sap.ui.getCore().byId("editTplDesc").getValue(),
                             promptTemplate: sap.ui.getCore().byId("editTplPrompt").getValue(),
                             sections: sap.ui.getCore().byId("editTplSections").getValue(),
+                            referenceContent: sap.ui.getCore().byId("editTplRefContent") ? sap.ui.getCore().byId("editTplRefContent").getValue() : oTemplate.referenceContent,
+                            referenceFileName: sap.ui.getCore().byId("editTplRefName") ? sap.ui.getCore().byId("editTplRefName").getText().replace("Current: ", "") : oTemplate.referenceFileName,
                             isActive: sap.ui.getCore().byId("editTplActive").getSelected(),
                             modifiedAt: new Date().toISOString().split("T")[0]
                         };
@@ -1043,36 +1103,46 @@ sap.ui.define([
             var oFile = aFiles[0];
             var sFileName = oFile.name.toLowerCase();
 
-            // Check if .docx (binary ZIP) - cannot read as text
-            if (sFileName.endsWith(".docx") || sFileName.endsWith(".doc")) {
-                MessageBox.warning(
-                    "Word documents (.docx/.doc) are binary files and cannot be read directly.\n\n" +
-                    "Please save your reference document as a .txt file first:\n" +
-                    "  1. Open the document in Word\n" +
-                    "  2. File > Save As > Plain Text (.txt)\n" +
-                    "  3. Upload the .txt file here\n\n" +
-                    "Or copy-paste the document content into the text area below."
-                );
-                oFileUploader.clear();
-                return;
-            }
-
             var oNameField = sap.ui.getCore().byId(sNameFieldId);
             if (oNameField) oNameField.setText("Reference: " + oFile.name);
 
-            var oReader = new FileReader();
-            oReader.onload = function (e) {
-                var sContent = e.target.result;
-                var oContentField = sap.ui.getCore().byId(sContentFieldId);
-                if (oContentField) {
-                    oContentField.setValue(sContent);
-                }
-                MessageToast.show("Reference document loaded: " + oFile.name);
-            };
-            oReader.onerror = function () {
-                MessageBox.error("Failed to read reference file.");
-            };
-            oReader.readAsText(oFile);
+            if (sFileName.endsWith(".docx") || sFileName.endsWith(".doc")) {
+                // Read .docx as ArrayBuffer and convert to base64 for server-side extraction
+                var oReader = new FileReader();
+                oReader.onload = function (e) {
+                    var aBuffer = e.target.result;
+                    var aBytes = new Uint8Array(aBuffer);
+                    var sBinary = "";
+                    for (var i = 0; i < aBytes.length; i++) {
+                        sBinary += String.fromCharCode(aBytes[i]);
+                    }
+                    var sBase64 = btoa(sBinary);
+                    var oContentField = sap.ui.getCore().byId(sContentFieldId);
+                    if (oContentField) {
+                        oContentField.setValue(sBase64);
+                    }
+                    MessageToast.show("Reference document loaded: " + oFile.name);
+                };
+                oReader.onerror = function () {
+                    MessageBox.error("Failed to read reference file.");
+                };
+                oReader.readAsArrayBuffer(oFile);
+            } else {
+                // Read .txt as text
+                var oReader = new FileReader();
+                oReader.onload = function (e) {
+                    var sContent = e.target.result;
+                    var oContentField = sap.ui.getCore().byId(sContentFieldId);
+                    if (oContentField) {
+                        oContentField.setValue(sContent);
+                    }
+                    MessageToast.show("Reference document loaded: " + oFile.name);
+                };
+                oReader.onerror = function () {
+                    MessageBox.error("Failed to read reference file.");
+                };
+                oReader.readAsText(oFile);
+            }
         },
 
         // ═══════════════════════════════════════════════════════════

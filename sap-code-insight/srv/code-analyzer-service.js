@@ -1,5 +1,6 @@
 const cds = require('@sap/cds');
 const LOG = cds.log('code-analyzer');
+const mammoth = require('mammoth');
 
 // Import helper modules
 const SAPConnector = require('./lib/sap-connector');
@@ -184,7 +185,14 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
             // 3. Build full source code string
             const fullCode = this._buildCodeString(sourceResult);
 
-            // 4. Send to Claude API for analysis
+            // 4. Resolve reference content (from frontend options or template DB)
+            let referenceText = null;
+            const rawRef = data.options?.referenceContent || template?.referenceContent;
+            if (rawRef) {
+                referenceText = await this._extractReferenceText(rawRef);
+            }
+
+            // 5. Send to Claude API for analysis
             LOG.info(`Sending code to AI for ${data.options?.analysisType || 'BRD'} analysis...`);
             const claudeAnalyzer = new ClaudeAnalyzer();
             const analysis = await claudeAnalyzer.generateBRD({
@@ -198,7 +206,7 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                 customPrompt: data.options?.customPrompt,
                 templatePrompt: template?.promptTemplate,
                 templateSections: template?.sections,
-                referenceContent: template?.referenceContent
+                referenceContent: referenceText
             });
 
             // 5. Generate document (PDF or DOCX)
@@ -331,6 +339,13 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                     .where({ ID: data.options.templateId });
             }
 
+            // Resolve reference content (from frontend options or template DB)
+            let referenceText = null;
+            const rawRef = data.options?.referenceContent || template?.referenceContent;
+            if (rawRef) {
+                referenceText = await this._extractReferenceText(rawRef);
+            }
+
             // Send to AI for analysis
             LOG.info(`Sending uploaded code to AI for ${data.options?.analysisType || 'BRD'} analysis...`);
             const claudeAnalyzer = new ClaudeAnalyzer();
@@ -345,7 +360,7 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                 customPrompt: data.options?.customPrompt,
                 templatePrompt: template?.promptTemplate,
                 templateSections: template?.sections,
-                referenceContent: template?.referenceContent
+                referenceContent: referenceText
             });
 
             // Generate document (PDF or DOCX)
@@ -420,6 +435,36 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                 message: `Document generation failed: ${error.message}`
             };
         }
+    }
+
+    /**
+     * Extract text from reference content.
+     * If content is base64-encoded .docx, uses mammoth to extract text.
+     * Otherwise returns as-is (plain text).
+     */
+    async _extractReferenceText(content) {
+        if (!content) return null;
+
+        // Detect base64-encoded .docx (ZIP files start with "PK" = "UEsDB" in base64)
+        if (content.startsWith('UEsDB') || content.startsWith('data:application/')) {
+            try {
+                // Strip data URL prefix if present
+                let base64Data = content;
+                if (base64Data.includes(',')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+
+                const buffer = Buffer.from(base64Data, 'base64');
+                const result = await mammoth.extractRawText({ buffer });
+                LOG.info(`Extracted ${result.value.length} chars from .docx reference template`);
+                return result.value;
+            } catch (error) {
+                LOG.warn('Failed to extract text from .docx reference:', error.message);
+                return content; // Fall back to raw content
+            }
+        }
+
+        return content;
     }
 
     /**
