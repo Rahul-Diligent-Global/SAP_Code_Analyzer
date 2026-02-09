@@ -799,10 +799,37 @@ sap.ui.define([
                                 rows: 6, width: "100%"
                             }),
 
+                            new sap.ui.core.Title({ text: "Reference Document" }),
+                            new Label({ text: "Upload Reference" }),
+                            new VBox({
+                                items: [
+                                    new sap.m.MessageStrip({
+                                        text: "Upload a reference document (.docx, .txt) and the AI will adopt its structure, tone, and formatting style when generating documents.",
+                                        type: "Information", showIcon: true,
+                                        class: "sapUiTinyMarginBottom"
+                                    }),
+                                    new sap.ui.unified.FileUploader("newTplRefFile", {
+                                        name: "referenceFile",
+                                        uploadOnChange: false,
+                                        fileType: "txt,docx,doc",
+                                        placeholder: "Choose reference document...",
+                                        width: "100%",
+                                        buttonText: "Browse",
+                                        style: "Emphasized",
+                                        change: function (oEvt) { that._onReferenceFileSelected(oEvt, "newTplRefContent", "newTplRefName"); }
+                                    }),
+                                    new Text("newTplRefName", { text: "", class: "sapUiTinyMarginTop" }),
+                                    new TextArea("newTplRefContent", {
+                                        placeholder: "Or paste reference document content here...",
+                                        rows: 4, width: "100%"
+                                    })
+                                ]
+                            }),
+
                             new sap.ui.core.Title({ text: "Document Sections (Advanced)" }),
                             new Label({ text: "Custom Sections JSON" }),
                             new TextArea("newTplSections", {
-                                placeholder: "Optional: Paste custom JSON structure for document sections.\nLeave empty to use the default BRD structure.",
+                                placeholder: "Optional: Paste custom JSON structure for document sections.\nLeave empty to use the default structure.",
                                 rows: 5, width: "100%"
                             })
                         ]
@@ -833,6 +860,9 @@ sap.ui.define([
                 return;
             }
 
+            var sRefContent = sap.ui.getCore().byId("newTplRefContent") ? sap.ui.getCore().byId("newTplRefContent").getValue() : "";
+            var sRefName = sap.ui.getCore().byId("newTplRefName") ? sap.ui.getCore().byId("newTplRefName").getText() : "";
+
             var oNewTemplate = {
                 ID: "tpl-" + Date.now().toString(36),
                 templateName: sName,
@@ -840,6 +870,8 @@ sap.ui.define([
                 description: sap.ui.getCore().byId("newTplDesc").getValue(),
                 promptTemplate: sap.ui.getCore().byId("newTplPrompt").getValue(),
                 sections: sap.ui.getCore().byId("newTplSections").getValue(),
+                referenceContent: sRefContent,
+                referenceFileName: sRefName,
                 isActive: sap.ui.getCore().byId("newTplActive").getSelected(),
                 modifiedAt: new Date().toISOString().split("T")[0]
             };
@@ -864,6 +896,8 @@ sap.ui.define([
                     description: oNewTemplate.description,
                     promptTemplate: oNewTemplate.promptTemplate,
                     sections: oNewTemplate.sections,
+                    referenceContent: oNewTemplate.referenceContent,
+                    referenceFileName: oNewTemplate.referenceFileName,
                     isActive: oNewTemplate.isActive
                 });
 
@@ -981,6 +1015,31 @@ sap.ui.define([
                     }
                 }
             });
+        },
+
+        _onReferenceFileSelected: function (oEvent, sContentFieldId, sNameFieldId) {
+            var oFileUploader = oEvent.getSource();
+            var aFiles = oEvent.getParameter("files") || oFileUploader.oFileUpload.files;
+
+            if (!aFiles || aFiles.length === 0) return;
+
+            var oFile = aFiles[0];
+            var oNameField = sap.ui.getCore().byId(sNameFieldId);
+            if (oNameField) oNameField.setText("Reference: " + oFile.name);
+
+            var oReader = new FileReader();
+            oReader.onload = function (e) {
+                var sContent = e.target.result;
+                var oContentField = sap.ui.getCore().byId(sContentFieldId);
+                if (oContentField) {
+                    oContentField.setValue(sContent);
+                }
+                MessageToast.show("Reference document loaded: " + oFile.name);
+            };
+            oReader.onerror = function () {
+                MessageBox.error("Failed to read reference file.");
+            };
+            oReader.readAsText(oFile);
         },
 
         // ═══════════════════════════════════════════════════════════

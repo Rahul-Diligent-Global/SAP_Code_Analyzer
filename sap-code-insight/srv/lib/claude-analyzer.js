@@ -32,27 +32,44 @@ class ClaudeAnalyzer {
     }
 
     /**
-     * Generate BRD (Business Requirements Document) analysis from ABAP code
+     * Get display label for analysis type
+     */
+    _getAnalysisTypeLabel(analysisType) {
+        const labels = {
+            'BRD': 'Business Requirements Document',
+            'FUNC_SPEC': 'Functional Specification',
+            'TECH_SPEC': 'Technical Specification',
+            'CODE_REVIEW': 'Code Review Report'
+        };
+        return labels[analysisType] || labels['BRD'];
+    }
+
+    /**
+     * Generate document analysis from ABAP code
+     * Supports BRD, Functional Spec, Technical Spec, Code Review
      */
     async generateBRD(params) {
         const {
             objectName, objectType, title, sourceCode,
             includes, detailLevel, customPrompt,
-            templatePrompt, templateSections
+            templatePrompt, templateSections, analysisType,
+            referenceContent
         } = params;
 
         if (this.isMockMode) {
-            LOG.info('Mock mode: returning sample BRD analysis');
-            return this._getMockBRDAnalysis(objectName, objectType, title, sourceCode);
+            LOG.info('Mock mode: returning sample analysis');
+            return this._getMockBRDAnalysis(objectName, objectType, title, sourceCode, analysisType);
         }
 
-        // Build the system prompt for BRD generation
-        const systemPrompt = this._buildBRDSystemPrompt(detailLevel, templateSections);
+        const effectiveType = analysisType || 'BRD';
+
+        // Build the system prompt for the chosen analysis type
+        const systemPrompt = this._buildSystemPrompt(effectiveType, detailLevel, templateSections, referenceContent);
 
         // Build the user message with code
-        const userMessage = this._buildBRDUserMessage({
+        const userMessage = this._buildUserMessage({
             objectName, objectType, title, sourceCode,
-            includes, customPrompt, templatePrompt
+            includes, customPrompt, templatePrompt, analysisType: effectiveType
         });
 
         LOG.info(`Sending ${sourceCode.length} chars to Claude API (model: ${this.model})`);
@@ -73,27 +90,26 @@ class ClaudeAnalyzer {
 
     /**
      * General code analysis (without document generation)
-     * Returns structured BRD-like analysis
+     * Returns structured analysis
      */
     async analyzeCode(params) {
         const { objectName, objectType, title, sourceCode, analysisType } = params;
 
         if (this.isMockMode) {
             LOG.info('Mock mode: returning sample code analysis');
-            return this._getMockBRDAnalysis(objectName, objectType, title, sourceCode);
+            return this._getMockBRDAnalysis(objectName, objectType, title, sourceCode, analysisType);
         }
 
-        const systemPrompt = this._buildBRDSystemPrompt(
-            'DETAILED',
-            null
-        );
+        const effectiveType = analysisType || 'BRD';
+        const typeLabel = this._getAnalysisTypeLabel(effectiveType);
+        const systemPrompt = this._buildSystemPrompt(effectiveType, 'DETAILED', null, null);
 
-        const userMessage = `Analyze this SAP ABAP object and generate a structured Business Requirements Document:
+        const userMessage = `Analyze this SAP ABAP object and generate a structured ${typeLabel}:
 
 Object Name: ${objectName}
 Object Type: ${objectType}
 Title: ${title}
-Analysis Type: ${analysisType || 'BRD'}
+Analysis Type: ${effectiveType}
 
 Source Code:
 \`\`\`abap
@@ -116,28 +132,93 @@ Do not include any text before or after the JSON.`;
     }
 
     /**
-     * Build system prompt for BRD generation
+     * Build system prompt based on analysis type
      */
-    _buildBRDSystemPrompt(detailLevel, templateSections) {
+    _buildSystemPrompt(analysisType, detailLevel, templateSections, referenceContent) {
         const sections = templateSections ? JSON.parse(templateSections) : this._getDefaultSections();
+        const typeLabel = this._getAnalysisTypeLabel(analysisType);
 
-        return `You are a Senior SAP Functional Consultant and Business Analyst with 20+ years of experience.
-Your task is to analyze SAP ABAP source code and generate a comprehensive Business Requirements Document (BRD) / Functional Specification.
+        let roleDescription, taskDescription, focusInstructions;
+
+        switch (analysisType) {
+            case 'FUNC_SPEC':
+                roleDescription = 'You are a Senior SAP Technical Consultant with 20+ years of experience in writing Functional Specifications.';
+                taskDescription = `Your task is to analyze SAP ABAP source code and generate a comprehensive Functional Specification document.`;
+                focusInstructions = `
+FUNCTIONAL SPECIFICATION FOCUS:
+- Document the complete functional design including process flows
+- Map every technical component to its functional purpose
+- Detail all data transformations and business logic
+- Describe the user interface / selection screen design
+- Document all integration interfaces (BAPIs, RFCs, IDocs, APIs)
+- Include detailed input/output data specifications
+- Describe how the solution fits into the overall SAP landscape`;
+                break;
+
+            case 'TECH_SPEC':
+                roleDescription = 'You are a Senior SAP Technical Architect with 20+ years of experience in writing Technical Specifications.';
+                taskDescription = `Your task is to analyze SAP ABAP source code and generate a comprehensive Technical Specification document.`;
+                focusInstructions = `
+TECHNICAL SPECIFICATION FOCUS:
+- Document the complete technical architecture and design patterns
+- Detail all classes, methods, function modules, forms
+- Describe the data model including all database tables and structures
+- Document the program flow, call hierarchy, and execution sequence
+- Include performance considerations and optimization notes
+- Detail all error handling mechanisms and exception classes
+- Document authorization checks and security implementation
+- Include database access patterns (SELECT, UPDATE, INSERT, DELETE)
+- Note any custom developments vs standard SAP usage`;
+                break;
+
+            case 'CODE_REVIEW':
+                roleDescription = 'You are a Senior SAP Code Quality Expert with 20+ years of ABAP development and code review experience.';
+                taskDescription = `Your task is to analyze SAP ABAP source code and generate a comprehensive Code Review Report.`;
+                focusInstructions = `
+CODE REVIEW FOCUS:
+- Evaluate code quality, readability, and maintainability
+- Identify code smells, anti-patterns, and areas for refactoring
+- Check for potential performance issues (N+1 queries, missing indexes, large internal tables)
+- Review error handling completeness and quality
+- Check authorization implementation
+- Evaluate adherence to SAP ABAP best practices and naming conventions
+- Identify potential security vulnerabilities
+- Review hardcoded values and magic numbers
+- Evaluate test coverage and testability
+- Provide specific improvement recommendations with code examples`;
+                break;
+
+            default: // BRD
+                roleDescription = 'You are a Senior SAP Functional Consultant and Business Analyst with 20+ years of experience.';
+                taskDescription = `Your task is to analyze SAP ABAP source code and generate a comprehensive Business Requirements Document (BRD).`;
+                focusInstructions = `
+BRD FOCUS:
+- Identify the business process the code implements
+- Map technical logic to business rules
+- Identify all input parameters, selection screens, and their business purpose
+- Document all output formats (ALV, reports, files, IDocs, etc.)
+- Note any authorization checks and their business context
+- Document error handling and business validations`;
+                break;
+        }
+
+        let prompt = `${roleDescription}
+${taskDescription}
+
+DOCUMENT TYPE: ${typeLabel}
 
 CRITICAL INSTRUCTIONS:
 1. Analyze the ABAP code thoroughly - understand every SELECT statement, BAPI call, module, form, method
-2. Identify the business process the code implements
-3. Determine all database tables used and their business meaning
-4. Map technical logic to business rules
-5. Identify all input parameters, selection screens, and their business purpose
-6. Document all output formats (ALV, reports, files, IDocs, etc.)
-7. Identify integration points (BAPIs, RFCs, IDocs, APIs)
-8. Note any authorization checks and their business context
-9. Document error handling and business validations
+2. Determine all database tables used and their business meaning
+3. Identify integration points (BAPIs, RFCs, IDocs, APIs)
+${focusInstructions}
+
+IMPORTANT: The document title (documentTitle field) MUST reflect the correct document type.
+- If generating a ${typeLabel}, the title should include "${typeLabel}" (NOT "Business Requirements Document" unless this IS a BRD)
 
 DETAIL LEVEL: ${detailLevel || 'DETAILED'}
 - SUMMARY: High-level overview, 2-3 pages
-- DETAILED: Full BRD with all sections, 5-10 pages
+- DETAILED: Full document with all sections, 5-10 pages
 - COMPREHENSIVE: Complete specification with data mappings, 10+ pages
 
 OUTPUT FORMAT: You MUST return a valid JSON object with the following structure:
@@ -149,18 +230,32 @@ IMPORTANT:
 - Include specific field names, table names mapped to business terminology
 - For each business rule, reference the corresponding code section
 - All text values should be properly escaped for JSON`;
+
+        if (referenceContent) {
+            prompt += `\n\nREFERENCE TEMPLATE DOCUMENT:
+The user has provided a reference document. Adopt its structure, tone, and formatting style.
+Generate the output following the same pattern, sections, and level of detail as this reference:
+
+---BEGIN REFERENCE---
+${referenceContent}
+---END REFERENCE---`;
+        }
+
+        return prompt;
     }
 
     /**
-     * Build user message with code for BRD generation
+     * Build user message with code
      */
-    _buildBRDUserMessage(params) {
+    _buildUserMessage(params) {
         const {
             objectName, objectType, title, sourceCode,
-            includes, customPrompt, templatePrompt
+            includes, customPrompt, templatePrompt, analysisType
         } = params;
 
-        let message = `Please analyze the following SAP ABAP object and generate a complete BRD document.
+        const typeLabel = this._getAnalysisTypeLabel(analysisType || 'BRD');
+
+        let message = `Please analyze the following SAP ABAP object and generate a complete ${typeLabel}.
 
 ═══════════════════════════════════════════════════════════════
 OBJECT DETAILS
@@ -168,6 +263,7 @@ OBJECT DETAILS
 Object Name: ${objectName}
 Object Type: ${objectType}
 Title/Description: ${title || 'Not specified'}
+Document Type Requested: ${typeLabel}
 `;
 
         if (includes && includes.length > 0) {
@@ -289,7 +385,8 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
     /**
      * Mock BRD analysis for local development without Claude API key
      */
-    _getMockBRDAnalysis(objectName, objectType, title, sourceCode) {
+    _getMockBRDAnalysis(objectName, objectType, title, sourceCode, analysisType) {
+        const typeLabel = this._getAnalysisTypeLabel(analysisType || 'BRD');
         // Extract some info from source code for realistic mock
         const lines = (sourceCode || '').split('\n');
         const totalLines = lines.length;
@@ -304,9 +401,9 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
         }
 
         return {
-            documentTitle: `Business Requirements Document - ${objectName}`,
+            documentTitle: `${typeLabel} - ${objectName}`,
             documentVersion: '1.0',
-            preparedDate: new Date().toLocaleDateString(),
+            preparedDate: new Date().toISOString().split('T')[0],
 
             executiveSummary: `This document describes the business requirements for the SAP ABAP custom development "${objectName}" (${objectType || 'Program'}). ${title || 'This object'} implements custom business logic within the SAP system. The program contains ${totalLines} lines of code across ${forms.length || 1} functional sections. This analysis identifies the key business processes, data flows, and integration points.`,
 

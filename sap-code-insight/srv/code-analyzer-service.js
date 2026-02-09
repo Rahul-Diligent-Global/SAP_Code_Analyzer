@@ -185,7 +185,7 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
             const fullCode = this._buildCodeString(sourceResult);
 
             // 4. Send to Claude API for analysis
-            LOG.info('Sending code to Claude AI for analysis...');
+            LOG.info(`Sending code to AI for ${data.options?.analysisType || 'BRD'} analysis...`);
             const claudeAnalyzer = new ClaudeAnalyzer();
             const analysis = await claudeAnalyzer.generateBRD({
                 objectName: data.objectName,
@@ -193,10 +193,12 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                 title: sourceResult.title,
                 sourceCode: fullCode,
                 includes: sourceResult.includes,
+                analysisType: data.options?.analysisType || 'BRD',
                 detailLevel: data.options?.detailLevel || 'DETAILED',
                 customPrompt: data.options?.customPrompt,
                 templatePrompt: template?.promptTemplate,
-                templateSections: template?.sections
+                templateSections: template?.sections,
+                referenceContent: template?.referenceContent
             });
 
             // 5. Generate document (PDF or DOCX)
@@ -329,8 +331,8 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                     .where({ ID: data.options.templateId });
             }
 
-            // Send to Claude AI for analysis
-            LOG.info('Sending uploaded code to Claude AI for analysis...');
+            // Send to AI for analysis
+            LOG.info(`Sending uploaded code to AI for ${data.options?.analysisType || 'BRD'} analysis...`);
             const claudeAnalyzer = new ClaudeAnalyzer();
             const analysis = await claudeAnalyzer.generateBRD({
                 objectName: data.objectName || 'UPLOADED_CODE',
@@ -338,10 +340,12 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                 title: data.objectName || 'Uploaded ABAP Code',
                 sourceCode: data.sourceCode,
                 includes: [],
+                analysisType: data.options?.analysisType || 'BRD',
                 detailLevel: data.options?.detailLevel || 'DETAILED',
                 customPrompt: data.options?.customPrompt,
                 templatePrompt: template?.promptTemplate,
-                templateSections: template?.sections
+                templateSections: template?.sections,
+                referenceContent: template?.referenceContent
             });
 
             // Generate document (PDF or DOCX)

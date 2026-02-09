@@ -597,6 +597,33 @@ sap.ui.define([
                                 rows: 6, width: "100%"
                             }),
 
+                            new sap.ui.core.Title({ text: "Reference Document" }),
+                            new Label({ text: "Upload Reference" }),
+                            new VBox({
+                                items: [
+                                    new sap.m.MessageStrip({
+                                        text: "Upload a reference document (.docx, .txt) and the AI will adopt its structure, tone, and formatting style when generating documents.",
+                                        type: "Information", showIcon: true,
+                                        class: "sapUiTinyMarginBottom"
+                                    }),
+                                    new sap.ui.unified.FileUploader("offlineNewTplRefFile", {
+                                        name: "referenceFile",
+                                        uploadOnChange: false,
+                                        fileType: "txt,docx,doc",
+                                        placeholder: "Choose reference document...",
+                                        width: "100%",
+                                        buttonText: "Browse",
+                                        style: "Emphasized",
+                                        change: function (oEvt) { that._onReferenceFileSelected(oEvt, "offlineNewTplRefContent", "offlineNewTplRefName"); }
+                                    }),
+                                    new Text("offlineNewTplRefName", { text: "", class: "sapUiTinyMarginTop" }),
+                                    new TextArea("offlineNewTplRefContent", {
+                                        placeholder: "Or paste reference document content here...",
+                                        rows: 4, width: "100%", visible: true
+                                    })
+                                ]
+                            }),
+
                             new sap.ui.core.Title({ text: "Document Sections (Advanced)" }),
                             new Label({ text: "Custom Sections JSON" }),
                             new TextArea("offlineNewTplSections", {
@@ -631,6 +658,9 @@ sap.ui.define([
                 return;
             }
 
+            var sRefContent = sap.ui.getCore().byId("offlineNewTplRefContent") ? sap.ui.getCore().byId("offlineNewTplRefContent").getValue() : "";
+            var sRefName = sap.ui.getCore().byId("offlineNewTplRefName") ? sap.ui.getCore().byId("offlineNewTplRefName").getText() : "";
+
             var oNewTemplate = {
                 ID: "tpl-" + Date.now().toString(36),
                 templateName: sName,
@@ -638,6 +668,8 @@ sap.ui.define([
                 description: sap.ui.getCore().byId("offlineNewTplDesc").getValue(),
                 promptTemplate: sap.ui.getCore().byId("offlineNewTplPrompt").getValue(),
                 sections: sap.ui.getCore().byId("offlineNewTplSections").getValue(),
+                referenceContent: sRefContent,
+                referenceFileName: sRefName,
                 isActive: sap.ui.getCore().byId("offlineNewTplActive").getSelected(),
                 modifiedAt: new Date().toISOString().split("T")[0]
             };
@@ -661,6 +693,8 @@ sap.ui.define([
                     description: oNewTemplate.description,
                     promptTemplate: oNewTemplate.promptTemplate,
                     sections: oNewTemplate.sections,
+                    referenceContent: oNewTemplate.referenceContent,
+                    referenceFileName: oNewTemplate.referenceFileName,
                     isActive: oNewTemplate.isActive
                 });
 
@@ -720,6 +754,30 @@ sap.ui.define([
                                 rows: 6, width: "100%"
                             }),
 
+                            new sap.ui.core.Title({ text: "Reference Document" }),
+                            new Label({ text: "Upload Reference" }),
+                            new VBox({
+                                items: [
+                                    new sap.ui.unified.FileUploader("offlineEditTplRefFile", {
+                                        name: "referenceFile",
+                                        uploadOnChange: false,
+                                        fileType: "txt,docx,doc",
+                                        placeholder: "Choose reference document...",
+                                        width: "100%",
+                                        buttonText: "Browse",
+                                        change: function (oEvt) { that._onReferenceFileSelected(oEvt, "offlineEditTplRefContent", "offlineEditTplRefName"); }
+                                    }),
+                                    new Text("offlineEditTplRefName", {
+                                        text: oTemplate.referenceFileName ? "Current: " + oTemplate.referenceFileName : "No reference document uploaded"
+                                    }),
+                                    new TextArea("offlineEditTplRefContent", {
+                                        value: oTemplate.referenceContent || "",
+                                        placeholder: "Or paste reference document content here...",
+                                        rows: 4, width: "100%"
+                                    })
+                                ]
+                            }),
+
                             new sap.ui.core.Title({ text: "Document Sections (Advanced)" }),
                             new Label({ text: "Custom Sections JSON" }),
                             new TextArea("offlineEditTplSections", {
@@ -741,6 +799,8 @@ sap.ui.define([
                             description: sap.ui.getCore().byId("offlineEditTplDesc").getValue(),
                             promptTemplate: sap.ui.getCore().byId("offlineEditTplPrompt").getValue(),
                             sections: sap.ui.getCore().byId("offlineEditTplSections").getValue(),
+                            referenceContent: sap.ui.getCore().byId("offlineEditTplRefContent") ? sap.ui.getCore().byId("offlineEditTplRefContent").getValue() : oTemplate.referenceContent,
+                            referenceFileName: sap.ui.getCore().byId("offlineEditTplRefName") ? sap.ui.getCore().byId("offlineEditTplRefName").getText().replace("Current: ", "") : oTemplate.referenceFileName,
                             isActive: sap.ui.getCore().byId("offlineEditTplActive").getSelected(),
                             modifiedAt: new Date().toISOString().split("T")[0]
                         };
@@ -776,6 +836,31 @@ sap.ui.define([
                     }
                 }
             });
+        },
+
+        _onReferenceFileSelected: function (oEvent, sContentFieldId, sNameFieldId) {
+            var oFileUploader = oEvent.getSource();
+            var aFiles = oEvent.getParameter("files") || oFileUploader.oFileUpload.files;
+
+            if (!aFiles || aFiles.length === 0) return;
+
+            var oFile = aFiles[0];
+            var oNameField = sap.ui.getCore().byId(sNameFieldId);
+            if (oNameField) oNameField.setText("Reference: " + oFile.name);
+
+            var oReader = new FileReader();
+            oReader.onload = function (e) {
+                var sContent = e.target.result;
+                var oContentField = sap.ui.getCore().byId(sContentFieldId);
+                if (oContentField) {
+                    oContentField.setValue(sContent);
+                }
+                MessageToast.show("Reference document loaded: " + oFile.name);
+            };
+            oReader.onerror = function () {
+                MessageBox.error("Failed to read reference file.");
+            };
+            oReader.readAsText(oFile);
         },
 
         // ═══════════════════════════════════════════════════════════

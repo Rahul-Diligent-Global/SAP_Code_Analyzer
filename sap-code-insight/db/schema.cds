@@ -50,12 +50,14 @@ entity DocumentGenerationLog : cuid, managed, tenantAware {
  * Document templates for BRD generation
  */
 entity DocumentTemplates : cuid, managed, tenantAware {
-    templateName    : String(100)   @title: 'Template Name';
-    templateType    : String(20)    @title: 'Template Type';  // BRD, FUNC_SPEC, TECH_SPEC
-    description     : String(500)   @title: 'Description';
-    promptTemplate  : LargeString   @title: 'Claude Prompt Template';
-    sections        : LargeString   @title: 'Document Sections (JSON)';
-    isActive        : Boolean       @title: 'Active';
+    templateName     : String(100)   @title: 'Template Name';
+    templateType     : String(20)    @title: 'Template Type';  // BRD, FUNC_SPEC, TECH_SPEC, CODE_REVIEW
+    description      : String(500)   @title: 'Description';
+    promptTemplate   : LargeString   @title: 'AI Prompt Template';
+    sections         : LargeString   @title: 'Document Sections (JSON)';
+    referenceContent : LargeString   @title: 'Reference Document Content';  // Extracted text from uploaded reference doc
+    referenceFileName: String(200)   @title: 'Reference File Name';
+    isActive         : Boolean       @title: 'Active';
 }
 
 // ═══════════════════════════════════════════════════════════════════════
