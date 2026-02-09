@@ -194,7 +194,7 @@ class SAPConnector {
             );
         }
 
-        const rfcUrl = `/sap/bc/srt/rfc/sap/${functionName.toLowerCase()}/`;
+        const rfcUrl = `/sap/bc/srt/scs/sap/${functionName.toLowerCase()}`;
         const soapBody = this._buildSOAPEnvelope(functionName, params);
 
         // Step 1: Fetch CSRF token via GET (try multiple URLs)
