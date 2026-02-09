@@ -195,7 +195,12 @@ class SAPConnector {
         }
 
         const rfcUrl = `/sap/bc/srt/scs/sap/${functionName.toLowerCase()}`;
+
+        // Step 0: Fetch WSDL for diagnostics (first call only)
+        await this._fetchAndLogWsdl(destination, rfcUrl);
+
         const soapBody = this._buildSOAPEnvelope(functionName, params);
+        LOG.info(`_callRFC: SOAP Body being sent:\n${soapBody}`);
 
         // Step 1: Fetch CSRF token via GET (try multiple URLs)
         LOG.info(`_callRFC: Fetching CSRF token for ${rfcUrl}`);
@@ -204,7 +209,7 @@ class SAPConnector {
         // Step 2: Build headers with CSRF token + session cookies
         const headers = {
             'Content-Type': 'text/xml; charset=utf-8',
-            'SOAPAction': `urn:sap-com:document:sap:rfc:functions:${functionName}`
+            'SOAPAction': ''
         };
         if (csrf.token) {
             headers['X-CSRF-Token'] = csrf.token;
@@ -243,10 +248,35 @@ class SAPConnector {
         } catch (err) {
             const status = err.response?.status || 'unknown';
             const respBody = err.response?.data
-                ? (typeof err.response.data === 'string' ? err.response.data.substring(0, 500) : JSON.stringify(err.response.data).substring(0, 500))
+                ? (typeof err.response.data === 'string' ? err.response.data.substring(0, 1000) : JSON.stringify(err.response.data).substring(0, 1000))
                 : 'no response body';
             LOG.error(`_callRFC: POST ${rfcUrl} failed (HTTP ${status}). Response: ${respBody}`);
             throw err;
+        }
+    }
+
+    /**
+     * Fetch and log the WSDL for diagnostic purposes (once per function)
+     */
+    async _fetchAndLogWsdl(destination, rfcUrl) {
+        if (this._wsdlFetched) return;
+        this._wsdlFetched = true;
+
+        const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
+        try {
+            const wsdlUrl = `${rfcUrl}?wsdl`;
+            LOG.info(`_fetchAndLogWsdl: Fetching WSDL from ${wsdlUrl}`);
+            const response = await executeHttpRequest(
+                destination,
+                { method: 'GET', url: wsdlUrl },
+                { fetchCsrfToken: false }
+            );
+            const wsdlContent = typeof response.data === 'string'
+                ? response.data.substring(0, 3000)
+                : JSON.stringify(response.data).substring(0, 3000);
+            LOG.info(`WSDL CONTENT:\n${wsdlContent}`);
+        } catch (err) {
+            LOG.warn(`_fetchAndLogWsdl: Failed to fetch WSDL: ${err.message}`);
         }
     }
 
