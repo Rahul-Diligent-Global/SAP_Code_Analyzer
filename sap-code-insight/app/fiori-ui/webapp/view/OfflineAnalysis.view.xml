@@ -22,12 +22,39 @@
                 </contentLeft>
                 <contentRight>
                     <Button
+                        text="Templates"
+                        icon="sap-icon://attachment-html"
+                        type="Transparent"
+                        press=".onOpenTemplateManager"
+                        tooltip="Manage Document Templates"/>
+                    <Select id="analysisTypeSelect"
+                            selectedKey="{offlineModel>/analysisType}"
+                            tooltip="Analysis Type"
+                            class="sapUiSmallMarginEnd">
+                        <core:Item key="BRD" text="BRD"/>
+                        <core:Item key="FUNC_SPEC" text="Functional Spec"/>
+                        <core:Item key="TECH_SPEC" text="Technical Spec"/>
+                        <core:Item key="CODE_REVIEW" text="Code Review"/>
+                    </Select>
+                    <Button
                         id="analyzeBtn"
                         text="Analyze Code"
                         icon="sap-icon://inspection"
-                        type="Emphasized"
+                        type="Default"
                         press=".onAnalyzeCode"
-                        visible="{= !!${offlineModel>/sourceCode} &amp;&amp; ${offlineModel>/sourceCode}.length > 0}"/>
+                        visible="{offlineModel>/codeLoaded}"/>
+                    <MenuButton text="Generate Document" icon="sap-icon://document" type="Emphasized"
+                                visible="{offlineModel>/codeLoaded}">
+                        <menu>
+                            <Menu>
+                                <MenuItem text="Generate BRD (Word)" icon="sap-icon://doc-attachment" press=".onGenerateDocx"/>
+                                <MenuItem text="Generate BRD (PDF)" icon="sap-icon://pdf-attachment" press=".onGeneratePdf"/>
+                                <MenuItem text="Functional Spec (Word)" icon="sap-icon://document-text" press=".onGenerateFuncSpec"/>
+                                <MenuItem text="Technical Spec (Word)" icon="sap-icon://technical-object" press=".onGenerateTechSpec"/>
+                                <MenuItem text="Code Review (Word)" icon="sap-icon://compare" press=".onGenerateCodeReview"/>
+                            </Menu>
+                        </menu>
+                    </MenuButton>
                 </contentRight>
             </Bar>
         </customHeader>

@@ -55,6 +55,10 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
             );
         });
 
+        this.on('generateOfflineDocument', async (req) => {
+            return this._generateOfflineDocument(req.data, req.user);
+        });
+
         this.on('getUserInfo', async (req) => {
             const user = req.user;
             return {
@@ -304,6 +308,113 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
         } catch (error) {
             LOG.error(`Offline code analysis failed: ${error.message}`);
             throw new Error(`Offline analysis failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Generate document from uploaded code (offline, no SAP connection)
+     */
+    async _generateOfflineDocument(data, user) {
+        const { DocumentGenerationLog, DocumentTemplates } = this.entities;
+        const startTime = Date.now();
+        let logEntry;
+
+        try {
+            LOG.info(`Generating offline document for: ${data.objectName}`);
+
+            // Get template if specified
+            let template = null;
+            if (data.options?.templateId) {
+                template = await SELECT.one.from(DocumentTemplates)
+                    .where({ ID: data.options.templateId });
+            }
+
+            // Send to Claude AI for analysis
+            LOG.info('Sending uploaded code to Claude AI for analysis...');
+            const claudeAnalyzer = new ClaudeAnalyzer();
+            const analysis = await claudeAnalyzer.generateBRD({
+                objectName: data.objectName || 'UPLOADED_CODE',
+                objectType: 'PROG',
+                title: data.objectName || 'Uploaded ABAP Code',
+                sourceCode: data.sourceCode,
+                includes: [],
+                detailLevel: data.options?.detailLevel || 'DETAILED',
+                customPrompt: data.options?.customPrompt,
+                templatePrompt: template?.promptTemplate,
+                templateSections: template?.sections
+            });
+
+            // Generate document (PDF or DOCX)
+            const docType = data.options?.documentType || 'DOCX';
+            LOG.info(`Generating ${docType} document from offline code...`);
+            const docGenerator = new DocumentGenerator();
+
+            const sourceResult = {
+                objectName: data.objectName || 'UPLOADED_CODE',
+                objectType: 'PROG',
+                title: data.objectName || 'Uploaded ABAP Code',
+                totalLines: data.sourceCode.split('\n').length,
+                sourceCode: data.sourceCode.split('\n').map((line, i) => ({
+                    lineNumber: i + 1,
+                    sourceLine: line,
+                    includeName: 'MAIN',
+                    section: 'MAIN'
+                })),
+                includes: []
+            };
+
+            let docResult;
+            if (docType === 'PDF') {
+                docResult = await docGenerator.generatePDF(analysis, sourceResult, data.options);
+            } else {
+                docResult = await docGenerator.generateDOCX(analysis, sourceResult, data.options);
+            }
+
+            // Log the generation
+            const genTime = Date.now() - startTime;
+            logEntry = {
+                objectName: data.objectName || 'UPLOADED_CODE',
+                objectType: 'OFFLINE',
+                documentType: docType,
+                templateUsed: template?.templateName || 'DEFAULT',
+                claudeModel: analysis.modelUsed,
+                tokensUsed: analysis.tokensUsed,
+                generationTime: genTime,
+                status: 'SUCCESS',
+                generatedBy: user?.id || 'anonymous',
+                generatedAt: new Date().toISOString()
+            };
+            await INSERT.into(DocumentGenerationLog).entries(logEntry);
+
+            return {
+                success: true,
+                fileName: docResult.fileName,
+                fileType: docType,
+                fileContent: docResult.base64Content,
+                fileSize: docResult.fileSize,
+                generationId: logEntry.ID,
+                message: `Document generated successfully in ${genTime}ms`
+            };
+
+        } catch (error) {
+            LOG.error('Offline document generation failed:', error.message);
+
+            logEntry = {
+                objectName: data.objectName || 'UPLOADED_CODE',
+                objectType: 'OFFLINE',
+                documentType: data.options?.documentType || 'DOCX',
+                status: 'FAILED',
+                errorMessage: error.message?.substring(0, 500),
+                generationTime: Date.now() - startTime,
+                generatedBy: user?.id || 'anonymous',
+                generatedAt: new Date().toISOString()
+            };
+            await INSERT.into(DocumentGenerationLog).entries(logEntry);
+
+            return {
+                success: false,
+                message: `Document generation failed: ${error.message}`
+            };
         }
     }
 

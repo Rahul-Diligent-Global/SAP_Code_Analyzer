@@ -128,6 +128,16 @@ service CodeAnalyzerService @(path: '/api/analyzer') {
     ) returns String; // JSON string with analysis
 
     /**
+     * Generate document from uploaded code offline (no SAP connection needed)
+     * Similar to generateDocument but takes source code directly
+     */
+    action generateOfflineDocument(
+        objectName : String(120),
+        sourceCode : LargeString,
+        options    : DocumentOptions
+    ) returns DocumentResult;
+
+    /**
      * Get current user info including roles
      * Used by UI to show/hide admin features
      */

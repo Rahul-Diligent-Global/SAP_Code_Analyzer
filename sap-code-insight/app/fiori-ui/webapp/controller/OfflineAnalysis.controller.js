@@ -3,8 +3,30 @@ sap.ui.define([
     "sap/ui/model/json/JSONModel",
     "sap/m/MessageBox",
     "sap/m/MessageToast",
-    "sap/m/BusyDialog"
-], function (Controller, JSONModel, MessageBox, MessageToast, BusyDialog) {
+    "sap/m/BusyDialog",
+    "sap/m/Dialog",
+    "sap/m/Button",
+    "sap/m/Label",
+    "sap/m/Input",
+    "sap/m/Select",
+    "sap/m/TextArea",
+    "sap/m/CheckBox",
+    "sap/m/VBox",
+    "sap/m/HBox",
+    "sap/m/Text",
+    "sap/m/Title",
+    "sap/m/Table",
+    "sap/m/Column",
+    "sap/m/ColumnListItem",
+    "sap/m/Toolbar",
+    "sap/m/ToolbarSpacer",
+    "sap/m/ObjectStatus",
+    "sap/ui/core/Item",
+    "sap/ui/layout/form/SimpleForm"
+], function (Controller, JSONModel, MessageBox, MessageToast, BusyDialog,
+             Dialog, Button, Label, Input, Select, TextArea, CheckBox, VBox, HBox, Text, Title,
+             Table, Column, ColumnListItem, Toolbar, ToolbarSpacer, ObjectStatus,
+             Item, SimpleForm) {
     "use strict";
 
     return Controller.extend("com.sap.codeinsight.controller.OfflineAnalysis", {
@@ -17,9 +39,15 @@ sap.ui.define([
                 lineCount: 0,
                 busy: false,
                 analysis: null,
-                analysisHtml: ""
+                analysisHtml: "",
+                analysisType: "BRD"
             });
             this.getView().setModel(this._oModel, "offlineModel");
+
+            this._oTemplateModel = new JSONModel({
+                templates: [],
+                newTemplate: {}
+            });
 
             this._oBusyDialog = new BusyDialog({
                 title: "Analyzing Code",
@@ -120,20 +148,23 @@ sap.ui.define([
         onAnalyzeCode: function (bRetry) {
             var sCode = this._oModel.getProperty("/sourceCode");
             var sName = this._oModel.getProperty("/objectName");
+            var sAnalysisType = this._oModel.getProperty("/analysisType") || "BRD";
 
             if (!sCode || sCode.trim().length === 0) {
                 MessageBox.warning("Please load code first.");
                 return;
             }
 
+            var sTypeLabel = this._getAnalysisTypeLabel(sAnalysisType);
             var that = this;
+            this._oBusyDialog.setText("Analyzing code with Claude AI...\n\nAnalysis Type: " + sTypeLabel + "\n\nThis may take a moment...");
             this._oBusyDialog.open();
 
             var oODataModel = this.getOwnerComponent().getModel();
             var oContext = oODataModel.bindContext("/analyzeOfflineCode(...)");
             oContext.setParameter("objectName", sName || "UPLOADED_CODE");
             oContext.setParameter("sourceCode", sCode);
-            oContext.setParameter("analysisType", "BRD");
+            oContext.setParameter("analysisType", sAnalysisType);
 
             oContext.execute().then(function () {
                 var oResult = oContext.getBoundContext().getObject();
@@ -165,13 +196,595 @@ sap.ui.define([
             });
         },
 
+        _getAnalysisTypeLabel: function (sType) {
+            var mLabels = {
+                "BRD": "Business Requirements Document",
+                "FUNC_SPEC": "Functional Specification",
+                "TECH_SPEC": "Technical Specification",
+                "CODE_REVIEW": "Code Review Report"
+            };
+            return mLabels[sType] || sType;
+        },
+
         // ═══════════════════════════════════════════════════════════
-        // ANALYSIS DISPLAY (same as ObjectDetail)
+        // DOCUMENT GENERATION
+        // ═══════════════════════════════════════════════════════════
+
+        onGenerateDocx: function () { this._showGenerateDialog("DOCX", "BRD"); },
+        onGeneratePdf: function () { this._showGenerateDialog("PDF", "BRD"); },
+        onGenerateFuncSpec: function () { this._showGenerateDialog("DOCX", "FUNC_SPEC"); },
+        onGenerateTechSpec: function () { this._showGenerateDialog("DOCX", "TECH_SPEC"); },
+        onGenerateCodeReview: function () { this._showGenerateDialog("DOCX", "CODE_REVIEW"); },
+
+        _showGenerateDialog: function (sDocType, sTemplate) {
+            var that = this;
+
+            var aTemplateItems = [
+                new Item({ key: "", text: "Default Template" })
+            ];
+
+            // Load templates from backend
+            var oModel = this.getOwnerComponent().getModel();
+            try {
+                var oListBinding = oModel.bindList("/DocumentTemplates", null, null, [
+                    new sap.ui.model.Filter("isActive", "EQ", true)
+                ]);
+                oListBinding.requestContexts(0, 50).then(function (aContexts) {
+                    aContexts.forEach(function (oCtx) {
+                        var oTpl = oCtx.getObject();
+                        var oSel = sap.ui.getCore().byId("offlineTplSelect");
+                        if (oSel) {
+                            oSel.addItem(new Item({
+                                key: oTpl.ID,
+                                text: oTpl.templateName + " (" + oTpl.templateType + ")"
+                            }));
+                        }
+                    });
+                });
+            } catch (e) { /* templates not available */ }
+
+            var sDialogTitle = "Generate ";
+            switch (sTemplate) {
+                case "FUNC_SPEC": sDialogTitle += "Functional Specification"; break;
+                case "TECH_SPEC": sDialogTitle += "Technical Specification"; break;
+                case "CODE_REVIEW": sDialogTitle += "Code Review Report"; break;
+                default: sDialogTitle += "BRD Document"; break;
+            }
+
+            var oDialog = new Dialog({
+                title: sDialogTitle,
+                type: "Message",
+                contentWidth: "520px",
+                content: [
+                    new VBox({
+                        class: "sapUiSmallMargin",
+                        items: [
+                            new Label({ text: "Document Template:", design: "Bold" }),
+                            new Select("offlineTplSelect", { selectedKey: "", width: "100%", items: aTemplateItems }),
+
+                            new Label({ text: "Document Type:", design: "Bold", class: "sapUiSmallMarginTop" }),
+                            new Select("offlineDocTypeSelect", {
+                                selectedKey: sTemplate || "BRD", width: "100%",
+                                items: [
+                                    new Item({ key: "BRD", text: "Business Requirements Document" }),
+                                    new Item({ key: "FUNC_SPEC", text: "Functional Specification" }),
+                                    new Item({ key: "TECH_SPEC", text: "Technical Specification" }),
+                                    new Item({ key: "CODE_REVIEW", text: "Code Review Report" })
+                                ]
+                            }),
+
+                            new Label({ text: "Document Format:", design: "Bold", class: "sapUiSmallMarginTop" }),
+                            new Select("offlineDocFormatSelect", {
+                                selectedKey: sDocType, width: "100%",
+                                items: [
+                                    new Item({ key: "DOCX", text: "Word Document (.docx)" }),
+                                    new Item({ key: "PDF", text: "PDF Document (.pdf)" })
+                                ]
+                            }),
+
+                            new Label({ text: "Detail Level:", design: "Bold", class: "sapUiSmallMarginTop" }),
+                            new Select("offlineDetailSelect", {
+                                selectedKey: "DETAILED", width: "100%",
+                                items: [
+                                    new Item({ key: "SUMMARY", text: "Summary (2-3 pages)" }),
+                                    new Item({ key: "DETAILED", text: "Detailed (5-10 pages)" }),
+                                    new Item({ key: "COMPREHENSIVE", text: "Comprehensive (10+ pages)" })
+                                ]
+                            }),
+
+                            new CheckBox("offlineIncludeCodeCheck", { text: "Include Source Code in Appendix", selected: true, class: "sapUiSmallMarginTop" }),
+
+                            new Label({ text: "Custom Instructions (Optional):", design: "Bold", class: "sapUiSmallMarginTop" }),
+                            new TextArea("offlineCustomPromptArea", {
+                                placeholder: "Add any specific instructions for the AI...\nE.g., 'Focus on the MM module integration'",
+                                width: "100%", rows: 3
+                            })
+                        ]
+                    })
+                ],
+                beginButton: new Button({
+                    text: "Generate", type: "Emphasized", icon: "sap-icon://create",
+                    press: function () {
+                        var sFormat = sap.ui.getCore().byId("offlineDocFormatSelect").getSelectedKey();
+                        var sDetailLevel = sap.ui.getCore().byId("offlineDetailSelect").getSelectedKey();
+                        var bIncludeCode = sap.ui.getCore().byId("offlineIncludeCodeCheck").getSelected();
+                        var sCustomPrompt = sap.ui.getCore().byId("offlineCustomPromptArea").getValue();
+                        var sTemplateId = sap.ui.getCore().byId("offlineTplSelect").getSelectedKey();
+                        var sDocTypeKey = sap.ui.getCore().byId("offlineDocTypeSelect").getSelectedKey();
+                        oDialog.close();
+                        that._executeOfflineDocumentGeneration(sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId, sDocTypeKey);
+                    }
+                }),
+                endButton: new Button({ text: "Cancel", press: function () { oDialog.close(); } }),
+                afterClose: function () { oDialog.destroy(); }
+            });
+
+            oDialog.open();
+        },
+
+        _executeOfflineDocumentGeneration: function (sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId, sDocType, bRetry) {
+            var that = this;
+            var sCode = this._oModel.getProperty("/sourceCode");
+            var sName = this._oModel.getProperty("/objectName");
+
+            this._oBusyDialog.setText(
+                "Generating document...\n\n" +
+                "Step 1: Analyzing uploaded code with Claude AI\n" +
+                "Step 2: Creating " + sFormat + " document\n\n" +
+                "This may take 30-60 seconds..."
+            );
+            this._oBusyDialog.open();
+
+            var oModel = this.getOwnerComponent().getModel();
+            var oContext = oModel.bindContext("/generateOfflineDocument(...)");
+
+            oContext.setParameter("objectName", sName || "UPLOADED_CODE");
+            oContext.setParameter("sourceCode", sCode);
+            oContext.setParameter("options", {
+                documentType: sFormat,
+                includeCode: bIncludeCode,
+                detailLevel: sDetailLevel,
+                customPrompt: sCustomPrompt || "",
+                templateId: sTemplateId || null
+            });
+
+            oContext.execute().then(function () {
+                var oResult = oContext.getBoundContext().getObject();
+                that._oBusyDialog.close();
+
+                if (oResult.success) {
+                    that._downloadFile(oResult.fileContent, oResult.fileName, oResult.fileType);
+                    MessageToast.show(oResult.message || "Document generated successfully!");
+                } else {
+                    MessageBox.error("Document generation failed: " + (oResult.message || "Unknown error"));
+                }
+            }).catch(function (oError) {
+                if (!bRetry && oError.statusCode === 403) {
+                    that._oBusyDialog.close();
+                    that._refreshCSRFTokenAndRetry(function () {
+                        that._executeOfflineDocumentGeneration(sFormat, sDetailLevel, bIncludeCode, sCustomPrompt, sTemplateId, sDocType, true);
+                    });
+                    return;
+                }
+                that._oBusyDialog.close();
+                MessageBox.error("Document generation failed: " + (oError.message || "Unknown error"));
+            });
+        },
+
+        // ═══════════════════════════════════════════════════════════
+        // TEMPLATE MANAGER
+        // ═══════════════════════════════════════════════════════════
+
+        onOpenTemplateManager: function () {
+            if (!this._oTemplateDialog) {
+                this._oTemplateDialog = this._createTemplateDialog();
+            }
+            this._loadTemplates();
+            this._oTemplateDialog.open();
+        },
+
+        _createTemplateDialog: function () {
+            var that = this;
+
+            var oTemplateTable = new Table("offlineTemplateListTable", {
+                growing: true,
+                growingThreshold: 20,
+                mode: "None",
+                alternateRowColors: true,
+                headerToolbar: new Toolbar({
+                    content: [
+                        new Title({ text: "Document Templates", level: "H5" }),
+                        new ToolbarSpacer(),
+                        new Button({
+                            text: "Create Template",
+                            icon: "sap-icon://add",
+                            type: "Emphasized",
+                            press: function () { that._showCreateTemplateDialog(); }
+                        })
+                    ]
+                }),
+                columns: [
+                    new Column({ width: "22%", header: new Text({ text: "Template Name" }) }),
+                    new Column({ width: "12%", header: new Text({ text: "Type" }) }),
+                    new Column({ width: "28%", header: new Text({ text: "Description" }) }),
+                    new Column({ width: "10%", header: new Text({ text: "Active" }) }),
+                    new Column({ width: "18%", header: new Text({ text: "Modified" }) }),
+                    new Column({ width: "10%", header: new Text({ text: "Actions" }) })
+                ]
+            });
+
+            oTemplateTable.setModel(this._oTemplateModel);
+            oTemplateTable.bindItems({
+                path: "/templates",
+                template: new ColumnListItem({
+                    cells: [
+                        new Text({ text: "{templateName}" }),
+                        new ObjectStatus({
+                            text: "{templateType}",
+                            state: "{= ${templateType} === 'BRD' ? 'Success' : ${templateType} === 'FUNC_SPEC' ? 'Information' : ${templateType} === 'TECH_SPEC' ? 'Warning' : 'None'}"
+                        }),
+                        new Text({ text: "{description}", maxLines: 2 }),
+                        new ObjectStatus({
+                            text: "{= ${isActive} ? 'Yes' : 'No'}",
+                            state: "{= ${isActive} ? 'Success' : 'None'}"
+                        }),
+                        new Text({ text: "{modifiedAt}" }),
+                        new HBox({
+                            items: [
+                                new Button({
+                                    icon: "sap-icon://edit",
+                                    tooltip: "Edit Template",
+                                    type: "Transparent",
+                                    press: function (oEvt) {
+                                        var sPath = oEvt.getSource().getParent().getParent().getBindingContextPath();
+                                        var oTemplate = that._oTemplateModel.getProperty(sPath);
+                                        that._showEditTemplateDialog(oTemplate, sPath);
+                                    }
+                                }),
+                                new Button({
+                                    icon: "sap-icon://delete",
+                                    tooltip: "Delete Template",
+                                    type: "Transparent",
+                                    press: function (oEvt) {
+                                        var sPath = oEvt.getSource().getParent().getParent().getBindingContextPath();
+                                        var oTemplate = that._oTemplateModel.getProperty(sPath);
+                                        that._deleteTemplate(oTemplate, sPath);
+                                    }
+                                })
+                            ]
+                        })
+                    ]
+                })
+            });
+
+            var oDialog = new Dialog({
+                title: "Document Template Manager",
+                contentWidth: "900px",
+                contentHeight: "480px",
+                resizable: true,
+                draggable: true,
+                content: [
+                    new VBox({
+                        class: "sapUiSmallMargin",
+                        items: [
+                            new sap.m.MessageStrip({
+                                text: "Templates define how Claude AI structures the analysis documents. Create templates for BRD, Functional Spec, Technical Spec, or Code Review with custom prompts and sections.",
+                                type: "Information",
+                                showIcon: true,
+                                class: "sapUiSmallMarginBottom"
+                            }),
+                            oTemplateTable
+                        ]
+                    })
+                ],
+                endButton: new Button({
+                    text: "Close",
+                    press: function () { oDialog.close(); }
+                })
+            });
+
+            return oDialog;
+        },
+
+        _loadTemplates: function () {
+            var that = this;
+            var oModel = this.getOwnerComponent().getModel();
+
+            try {
+                var oListBinding = oModel.bindList("/DocumentTemplates");
+                oListBinding.requestContexts(0, 100).then(function (aContexts) {
+                    var aTemplates = aContexts.map(function (oCtx) {
+                        return oCtx.getObject();
+                    });
+                    that._oTemplateModel.setProperty("/templates", aTemplates);
+                }).catch(function () {
+                    that._loadMockTemplates();
+                });
+            } catch (e) {
+                that._loadMockTemplates();
+            }
+        },
+
+        _loadMockTemplates: function () {
+            var aTemplates = this._oTemplateModel.getProperty("/templates");
+            if (aTemplates.length === 0) {
+                this._oTemplateModel.setProperty("/templates", [
+                    {
+                        ID: "tpl-default-brd",
+                        templateName: "Standard BRD",
+                        templateType: "BRD",
+                        description: "Default Business Requirements Document template with all standard sections",
+                        promptTemplate: "",
+                        sections: "",
+                        isActive: true,
+                        modifiedAt: "2025-01-15"
+                    },
+                    {
+                        ID: "tpl-func-spec",
+                        templateName: "Functional Specification",
+                        templateType: "FUNC_SPEC",
+                        description: "Technical functional specification focused on SAP module integration",
+                        promptTemplate: "Focus on technical implementation details, data flows, and SAP module integration points.",
+                        sections: "",
+                        isActive: true,
+                        modifiedAt: "2025-01-20"
+                    },
+                    {
+                        ID: "tpl-tech-spec",
+                        templateName: "Technical Specification",
+                        templateType: "TECH_SPEC",
+                        description: "Detailed technical specification with architecture, data model, and API details",
+                        promptTemplate: "Focus on technical architecture, data model design, performance considerations, and API specifications.",
+                        sections: "",
+                        isActive: true,
+                        modifiedAt: "2025-01-22"
+                    },
+                    {
+                        ID: "tpl-code-review",
+                        templateName: "Code Review Report",
+                        templateType: "CODE_REVIEW",
+                        description: "Code quality review covering best practices, security, performance, and maintainability",
+                        promptTemplate: "Analyze code quality, identify issues, suggest improvements for performance, security, and maintainability.",
+                        sections: "",
+                        isActive: true,
+                        modifiedAt: "2025-01-25"
+                    }
+                ]);
+            }
+        },
+
+        _showCreateTemplateDialog: function () {
+            var that = this;
+
+            var oDialog = new Dialog({
+                title: "Create New Document Template",
+                contentWidth: "600px",
+                content: [
+                    new SimpleForm({
+                        editable: true,
+                        layout: "ResponsiveGridLayout",
+                        labelSpanXL: 4, labelSpanL: 4, labelSpanM: 4,
+                        emptySpanXL: 0, emptySpanL: 0, emptySpanM: 0,
+                        columnsXL: 1, columnsL: 1, columnsM: 1,
+                        class: "sapUiSmallMargin",
+                        content: [
+                            new sap.ui.core.Title({ text: "Template Information" }),
+                            new Label({ text: "Template Name", required: true }),
+                            new Input("offlineNewTplName", { placeholder: "e.g., Acme Corp BRD Template" }),
+                            new Label({ text: "Template Type" }),
+                            new Select("offlineNewTplType", {
+                                selectedKey: "BRD",
+                                items: [
+                                    new Item({ key: "BRD", text: "Business Requirements Document" }),
+                                    new Item({ key: "FUNC_SPEC", text: "Functional Specification" }),
+                                    new Item({ key: "TECH_SPEC", text: "Technical Specification" }),
+                                    new Item({ key: "CODE_REVIEW", text: "Code Review Report" })
+                                ]
+                            }),
+                            new Label({ text: "Description" }),
+                            new TextArea("offlineNewTplDesc", {
+                                placeholder: "Describe the purpose and target audience for this template",
+                                rows: 2, width: "100%"
+                            }),
+                            new Label({ text: "Active" }),
+                            new CheckBox("offlineNewTplActive", { selected: true, text: "Enable this template" }),
+
+                            new sap.ui.core.Title({ text: "AI Prompt Instructions" }),
+                            new Label({ text: "Custom Prompt" }),
+                            new TextArea("offlineNewTplPrompt", {
+                                placeholder: "Custom instructions for Claude AI when using this template.\n\nExample:\n- Focus on SAP SD module integration points\n- Include data migration requirements\n- Use customer's terminology: 'Sales Order' instead of 'SO'",
+                                rows: 6, width: "100%"
+                            }),
+
+                            new sap.ui.core.Title({ text: "Document Sections (Advanced)" }),
+                            new Label({ text: "Custom Sections JSON" }),
+                            new TextArea("offlineNewTplSections", {
+                                placeholder: "Optional: Paste custom JSON structure for document sections.\nLeave empty to use the default structure.",
+                                rows: 5, width: "100%"
+                            })
+                        ]
+                    })
+                ],
+                beginButton: new Button({
+                    text: "Create Template",
+                    type: "Emphasized",
+                    icon: "sap-icon://create",
+                    press: function () {
+                        that._saveNewTemplate(oDialog);
+                    }
+                }),
+                endButton: new Button({
+                    text: "Cancel",
+                    press: function () { oDialog.close(); }
+                }),
+                afterClose: function () { oDialog.destroy(); }
+            });
+
+            oDialog.open();
+        },
+
+        _saveNewTemplate: function (oDialog) {
+            var sName = sap.ui.getCore().byId("offlineNewTplName").getValue();
+            if (!sName) {
+                MessageBox.warning("Please enter a template name.");
+                return;
+            }
+
+            var oNewTemplate = {
+                ID: "tpl-" + Date.now().toString(36),
+                templateName: sName,
+                templateType: sap.ui.getCore().byId("offlineNewTplType").getSelectedKey(),
+                description: sap.ui.getCore().byId("offlineNewTplDesc").getValue(),
+                promptTemplate: sap.ui.getCore().byId("offlineNewTplPrompt").getValue(),
+                sections: sap.ui.getCore().byId("offlineNewTplSections").getValue(),
+                isActive: sap.ui.getCore().byId("offlineNewTplActive").getSelected(),
+                modifiedAt: new Date().toISOString().split("T")[0]
+            };
+
+            if (oNewTemplate.sections) {
+                try {
+                    JSON.parse(oNewTemplate.sections);
+                } catch (e) {
+                    MessageBox.error("Custom Sections JSON is not valid JSON. Please fix the syntax.");
+                    return;
+                }
+            }
+
+            // Try to save to backend
+            var oModel = this.getOwnerComponent().getModel();
+            try {
+                var oListBinding = oModel.bindList("/DocumentTemplates");
+                var oContext = oListBinding.create({
+                    templateName: oNewTemplate.templateName,
+                    templateType: oNewTemplate.templateType,
+                    description: oNewTemplate.description,
+                    promptTemplate: oNewTemplate.promptTemplate,
+                    sections: oNewTemplate.sections,
+                    isActive: oNewTemplate.isActive
+                });
+
+                oContext.created().then(function () {
+                    MessageToast.show("Template created successfully!");
+                }).catch(function () {
+                    // OData create failed, still add to local model
+                });
+            } catch (e) { /* fallback to local */ }
+
+            var aTemplates = this._oTemplateModel.getProperty("/templates");
+            aTemplates.push(oNewTemplate);
+            this._oTemplateModel.setProperty("/templates", aTemplates);
+
+            oDialog.close();
+            MessageToast.show("Template '" + sName + "' created!");
+        },
+
+        _showEditTemplateDialog: function (oTemplate, sPath) {
+            var that = this;
+
+            var oDialog = new Dialog({
+                title: "Edit Template: " + oTemplate.templateName,
+                contentWidth: "600px",
+                content: [
+                    new SimpleForm({
+                        editable: true,
+                        layout: "ResponsiveGridLayout",
+                        labelSpanXL: 4, labelSpanL: 4, labelSpanM: 4,
+                        emptySpanXL: 0, emptySpanL: 0, emptySpanM: 0,
+                        columnsXL: 1, columnsL: 1, columnsM: 1,
+                        class: "sapUiSmallMargin",
+                        content: [
+                            new sap.ui.core.Title({ text: "Template Information" }),
+                            new Label({ text: "Template Name" }),
+                            new Input("offlineEditTplName", { value: oTemplate.templateName }),
+                            new Label({ text: "Type" }),
+                            new Select("offlineEditTplType", {
+                                selectedKey: oTemplate.templateType,
+                                items: [
+                                    new Item({ key: "BRD", text: "Business Requirements Document" }),
+                                    new Item({ key: "FUNC_SPEC", text: "Functional Specification" }),
+                                    new Item({ key: "TECH_SPEC", text: "Technical Specification" }),
+                                    new Item({ key: "CODE_REVIEW", text: "Code Review Report" })
+                                ]
+                            }),
+                            new Label({ text: "Description" }),
+                            new TextArea("offlineEditTplDesc", { value: oTemplate.description, rows: 2, width: "100%" }),
+                            new Label({ text: "Active" }),
+                            new CheckBox("offlineEditTplActive", { selected: oTemplate.isActive, text: "Enable this template" }),
+
+                            new sap.ui.core.Title({ text: "AI Prompt Instructions" }),
+                            new Label({ text: "Custom Prompt" }),
+                            new TextArea("offlineEditTplPrompt", {
+                                value: oTemplate.promptTemplate || "",
+                                placeholder: "Custom instructions for Claude AI...",
+                                rows: 6, width: "100%"
+                            }),
+
+                            new sap.ui.core.Title({ text: "Document Sections (Advanced)" }),
+                            new Label({ text: "Custom Sections JSON" }),
+                            new TextArea("offlineEditTplSections", {
+                                value: oTemplate.sections || "",
+                                placeholder: "Custom JSON structure (leave empty for default)",
+                                rows: 5, width: "100%"
+                            })
+                        ]
+                    })
+                ],
+                beginButton: new Button({
+                    text: "Save Changes",
+                    type: "Emphasized",
+                    press: function () {
+                        var oUpdated = {
+                            ID: oTemplate.ID,
+                            templateName: sap.ui.getCore().byId("offlineEditTplName").getValue(),
+                            templateType: sap.ui.getCore().byId("offlineEditTplType").getSelectedKey(),
+                            description: sap.ui.getCore().byId("offlineEditTplDesc").getValue(),
+                            promptTemplate: sap.ui.getCore().byId("offlineEditTplPrompt").getValue(),
+                            sections: sap.ui.getCore().byId("offlineEditTplSections").getValue(),
+                            isActive: sap.ui.getCore().byId("offlineEditTplActive").getSelected(),
+                            modifiedAt: new Date().toISOString().split("T")[0]
+                        };
+
+                        if (oUpdated.sections) {
+                            try { JSON.parse(oUpdated.sections); }
+                            catch (e) { MessageBox.error("Custom Sections JSON is invalid."); return; }
+                        }
+
+                        that._oTemplateModel.setProperty(sPath, oUpdated);
+                        oDialog.close();
+                        MessageToast.show("Template updated!");
+                    }
+                }),
+                endButton: new Button({ text: "Cancel", press: function () { oDialog.close(); } }),
+                afterClose: function () { oDialog.destroy(); }
+            });
+
+            oDialog.open();
+        },
+
+        _deleteTemplate: function (oTemplate, sPath) {
+            var that = this;
+            MessageBox.confirm("Delete template '" + oTemplate.templateName + "'?", {
+                title: "Confirm Delete",
+                onClose: function (oAction) {
+                    if (oAction === MessageBox.Action.OK) {
+                        var aTemplates = that._oTemplateModel.getProperty("/templates");
+                        var iIndex = parseInt(sPath.split("/").pop());
+                        aTemplates.splice(iIndex, 1);
+                        that._oTemplateModel.setProperty("/templates", aTemplates);
+                        MessageToast.show("Template deleted.");
+                    }
+                }
+            });
+        },
+
+        // ═══════════════════════════════════════════════════════════
+        // ANALYSIS DISPLAY (complete - matching ObjectDetail)
         // ═══════════════════════════════════════════════════════════
 
         _displayAnalysis: function (oAnalysis) {
             var aHtml = [];
 
+            // Document Title
             if (oAnalysis.documentTitle) {
                 aHtml.push("<div style='text-align:center;margin-bottom:20px;'>");
                 aHtml.push("<h2 style='color:#1F4E79;margin-bottom:4px;'>" + this._escapeHtml(oAnalysis.documentTitle) + "</h2>");
@@ -184,11 +797,13 @@ sap.ui.define([
                 aHtml.push("</div>");
             }
 
+            // Executive Summary
             if (oAnalysis.executiveSummary) {
                 aHtml.push(this._sectionHeader("Executive Summary"));
                 aHtml.push("<p style='line-height:1.6;'>" + this._escapeHtml(oAnalysis.executiveSummary) + "</p>");
             }
 
+            // Business Overview
             if (oAnalysis.businessOverview) {
                 var bo = oAnalysis.businessOverview;
                 aHtml.push(this._sectionHeader("Business Overview"));
@@ -201,6 +816,7 @@ sap.ui.define([
                 }
             }
 
+            // Functional Requirements
             if (oAnalysis.functionalRequirements && oAnalysis.functionalRequirements.length > 0) {
                 aHtml.push(this._sectionHeader("Functional Requirements"));
                 aHtml.push(this._htmlTable(
@@ -210,9 +826,11 @@ sap.ui.define([
                 ));
             }
 
+            // Data Specification
             if (oAnalysis.dataSpecification) {
                 var ds = oAnalysis.dataSpecification;
                 aHtml.push(this._sectionHeader("Data Specification"));
+
                 if (ds.tablesUsed && ds.tablesUsed.length > 0) {
                     aHtml.push("<h4 style='color:#404040;margin:12px 0 6px 0;'>SAP Tables Used</h4>");
                     aHtml.push(this._htmlTable(
@@ -221,8 +839,38 @@ sap.ui.define([
                         ["15%", "30%", "15%", "40%"]
                     ));
                 }
+                if (ds.inputData && ds.inputData.length > 0) {
+                    aHtml.push("<h4 style='color:#404040;margin:12px 0 6px 0;'>Input Data</h4>");
+                    aHtml.push(this._htmlTable(
+                        ["Field", "SAP Table", "Business Meaning", "Mandatory", "Validation"],
+                        ds.inputData.map(function (d) { return [d.fieldName, d.sapTable, d.businessMeaning, d.mandatory ? "Yes" : "No", d.validationRules]; }),
+                        ["15%", "15%", "30%", "10%", "30%"]
+                    ));
+                }
+                if (ds.outputData && ds.outputData.length > 0) {
+                    aHtml.push("<h4 style='color:#404040;margin:12px 0 6px 0;'>Output Data</h4>");
+                    aHtml.push(this._htmlTable(
+                        ["Field", "Description", "Format", "Business Use"],
+                        ds.outputData.map(function (d) { return [d.fieldName, d.description, d.format, d.businessUse]; }),
+                        ["15%", "30%", "15%", "40%"]
+                    ));
+                }
             }
 
+            // Selection Screen
+            if (oAnalysis.selectionScreen) {
+                aHtml.push(this._sectionHeader("Selection Screen"));
+                if (oAnalysis.selectionScreen.description) aHtml.push("<p>" + this._escapeHtml(oAnalysis.selectionScreen.description) + "</p>");
+                if (oAnalysis.selectionScreen.parameters && oAnalysis.selectionScreen.parameters.length > 0) {
+                    aHtml.push(this._htmlTable(
+                        ["Parameter", "Type", "Description", "Mandatory", "Default"],
+                        oAnalysis.selectionScreen.parameters.map(function (p) { return [p.paramName, p.type, p.description, p.mandatory ? "Yes" : "No", p.defaultValue]; }),
+                        ["15%", "12%", "38%", "10%", "20%"]
+                    ));
+                }
+            }
+
+            // Business Rules
             if (oAnalysis.businessRules && oAnalysis.businessRules.length > 0) {
                 aHtml.push(this._sectionHeader("Business Rules"));
                 aHtml.push(this._htmlTable(
@@ -232,6 +880,30 @@ sap.ui.define([
                 ));
             }
 
+            // Integration Points
+            if (oAnalysis.integrationPoints && oAnalysis.integrationPoints.length > 0) {
+                aHtml.push(this._sectionHeader("Integration Points"));
+                aHtml.push(this._htmlTable(
+                    ["System", "Type", "Direction", "Description", "Data Exchanged"],
+                    oAnalysis.integrationPoints.map(function (ip) { return [ip.system, ip.type, ip.direction, ip.description, ip.dataExchanged]; }),
+                    ["15%", "12%", "12%", "33%", "28%"]
+                ));
+            }
+
+            // Authorization
+            if (oAnalysis.authorization) {
+                aHtml.push(this._sectionHeader("Authorization & Security"));
+                if (oAnalysis.authorization.description) aHtml.push("<p>" + this._escapeHtml(oAnalysis.authorization.description) + "</p>");
+                if (oAnalysis.authorization.checks && oAnalysis.authorization.checks.length > 0) {
+                    aHtml.push(this._htmlTable(
+                        ["Auth Object", "Description", "Fields Checked"],
+                        oAnalysis.authorization.checks.map(function (a) { return [a.authObject, a.description, a.fields]; }),
+                        ["25%", "40%", "35%"]
+                    ));
+                }
+            }
+
+            // Error Handling
             if (oAnalysis.errorHandling && oAnalysis.errorHandling.length > 0) {
                 aHtml.push(this._sectionHeader("Error Handling"));
                 aHtml.push(this._htmlTable(
@@ -241,6 +913,7 @@ sap.ui.define([
                 ));
             }
 
+            // Test Scenarios
             if (oAnalysis.testScenarios && oAnalysis.testScenarios.length > 0) {
                 aHtml.push(this._sectionHeader("Test Scenarios"));
                 aHtml.push(this._htmlTable(
@@ -250,18 +923,26 @@ sap.ui.define([
                 ));
             }
 
+            // Appendix
             if (oAnalysis.appendix) {
                 aHtml.push(this._sectionHeader("Appendix"));
                 if (oAnalysis.appendix.technicalNotes) {
+                    aHtml.push("<h4 style='color:#404040;margin:8px 0 4px;'>Technical Notes</h4>");
                     aHtml.push("<p style='color:#555;'>" + this._escapeHtml(oAnalysis.appendix.technicalNotes) + "</p>");
                 }
                 if (oAnalysis.appendix.assumptions && oAnalysis.appendix.assumptions.length > 0) {
-                    aHtml.push("<h4 style='color:#404040;'>Assumptions</h4><ul>");
+                    aHtml.push("<h4 style='color:#404040;margin:8px 0 4px;'>Assumptions</h4><ul>");
                     oAnalysis.appendix.assumptions.forEach(function (a) { aHtml.push("<li>" + this._escapeHtml(a) + "</li>"); }.bind(this));
                     aHtml.push("</ul>");
                 }
+                if (oAnalysis.appendix.openQuestions && oAnalysis.appendix.openQuestions.length > 0) {
+                    aHtml.push("<h4 style='color:#404040;margin:8px 0 4px;'>Open Questions</h4><ol>");
+                    oAnalysis.appendix.openQuestions.forEach(function (q) { aHtml.push("<li>" + this._escapeHtml(q) + "</li>"); }.bind(this));
+                    aHtml.push("</ol>");
+                }
             }
 
+            // Fallback: raw analysis
             if (oAnalysis.rawAnalysis) {
                 aHtml.push(this._sectionHeader("Raw Analysis"));
                 aHtml.push("<pre style='white-space:pre-wrap;background:#f5f5f5;padding:12px;border-radius:4px;font-size:13px;'>" +
@@ -306,6 +987,28 @@ sap.ui.define([
             if (!str) return "";
             var s = String(str);
             return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        },
+
+        _downloadFile: function (sBase64, sFileName, sFileType) {
+            var sMimeType = sFileType === "PDF"
+                ? "application/pdf"
+                : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+            var byteCharacters = atob(sBase64);
+            var byteNumbers = new Array(byteCharacters.length);
+            for (var i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            var byteArray = new Uint8Array(byteNumbers);
+            var blob = new Blob([byteArray], { type: sMimeType });
+
+            var link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = sFileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
         },
 
         _refreshCSRFTokenAndRetry: function (fnRetry) {
