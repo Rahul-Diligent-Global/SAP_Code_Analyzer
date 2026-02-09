@@ -324,11 +324,35 @@ class SAPConnector {
                     return;
                 }
                 try {
-                    const body = result['soap-env:Envelope']['soap-env:Body'];
-                    const response = body[`n0:${functionName}Response`] ||
-                                   body[`${functionName}.Response`];
+                    LOG.info(`SOAP parsed structure keys: ${JSON.stringify(Object.keys(result))}`);
+                    const envelope = result['soap-env:Envelope'] || result['SOAP-ENV:Envelope'] ||
+                                    Object.values(result)[0];
+                    const body = envelope['soap-env:Body'] || envelope['SOAP-ENV:Body'] ||
+                                Object.values(envelope).find(v => typeof v === 'object');
+
+                    LOG.info(`SOAP Body keys: ${JSON.stringify(Object.keys(body))}`);
+
+                    // Find the response element - try various namespace prefixes
+                    let response = null;
+                    for (const key of Object.keys(body)) {
+                        if (key.toLowerCase().includes(functionName.toLowerCase())) {
+                            response = body[key];
+                            LOG.info(`Found response element: ${key}`);
+                            break;
+                        }
+                    }
+
+                    if (!response) {
+                        LOG.error(`Could not find response element for ${functionName} in body keys: ${Object.keys(body)}`);
+                        reject(new Error(`No response element found for ${functionName}`));
+                        return;
+                    }
+
+                    LOG.info(`Response element keys: ${JSON.stringify(Object.keys(response))}`);
+                    LOG.info(`Response content (first 2000 chars): ${JSON.stringify(response).substring(0, 2000)}`);
                     resolve(response);
                 } catch (e) {
+                    LOG.error(`Parse error. Raw XML (first 1000 chars): ${xmlData.substring(0, 1000)}`);
                     reject(new Error(`Unexpected SOAP response structure: ${e.message}`));
                 }
             });
@@ -339,24 +363,39 @@ class SAPConnector {
      * Map RFC result -> normalized custom objects
      */
     _mapObjectsResult(result) {
-        const rawObjects = result.EtObjects || result.ET_OBJECTS || [];
-        const items = Array.isArray(rawObjects) ? rawObjects : [rawObjects];
+        LOG.info(`_mapObjectsResult input keys: ${JSON.stringify(Object.keys(result))}`);
+
+        // ET_OBJECTS might be { item: [...] } or { item: {...} } or direct array
+        let rawObjects = result.EtObjects || result.ET_OBJECTS || result.etObjects || [];
+
+        // SAP SOAP wraps table rows in <item> elements
+        if (rawObjects && rawObjects.item !== undefined) {
+            rawObjects = rawObjects.item;
+            LOG.info(`Extracted 'item' from ET_OBJECTS`);
+        }
+
+        const items = Array.isArray(rawObjects) ? rawObjects : (rawObjects ? [rawObjects] : []);
+        LOG.info(`_mapObjectsResult: Found ${items.length} items`);
+        if (items.length > 0) {
+            LOG.info(`First item keys: ${JSON.stringify(Object.keys(items[0]))}`);
+            LOG.info(`First item: ${JSON.stringify(items[0])}`);
+        }
 
         const objects = items
             .filter(obj => obj)
             .map(obj => ({
-                objectName: obj.ObjectName || obj.OBJECT_NAME,
-                objectType: obj.ObjectType || obj.OBJECT_TYPE,
-                objectTypeText: obj.ObjectTypeText || obj.OBJECT_TYPE_TEXT,
-                category: obj.Category || obj.CATEGORY,
-                subType: obj.SubType || obj.SUB_TYPE,
-                package: obj.Package || obj.PACKAGE,
-                createdBy: obj.CreatedBy || obj.CREATED_BY,
-                createdOn: obj.CreatedOn || obj.CREATED_ON
+                objectName: obj.ObjectName || obj.OBJECT_NAME || obj.objectName || obj.OBJECTNAME,
+                objectType: obj.ObjectType || obj.OBJECT_TYPE || obj.objectType || obj.OBJECTTYPE,
+                objectTypeText: obj.ObjectTypeText || obj.OBJECT_TYPE_TEXT || obj.objectTypeText || obj.OBJECTTYPETEXT || '',
+                category: obj.Category || obj.CATEGORY || obj.category || '',
+                subType: obj.SubType || obj.SUB_TYPE || obj.subType || '',
+                package: obj.Package || obj.PACKAGE || obj.package || obj.DEVCLASS || '',
+                createdBy: obj.CreatedBy || obj.CREATED_BY || obj.createdBy || '',
+                createdOn: obj.CreatedOn || obj.CREATED_ON || obj.createdOn || ''
             }));
 
         return {
-            evTotalCount: result.EvTotalCount || result.EV_TOTAL_COUNT || objects.length,
+            evTotalCount: result.EvTotalCount || result.EV_TOTAL_COUNT || result.evTotalCount || objects.length,
             etObjects: objects
         };
     }
@@ -365,34 +404,43 @@ class SAPConnector {
      * Map RFC result -> normalized source code
      */
     _mapSourceCodeResult(result) {
-        const rawLines = result.EtSourceCode || result.ET_SOURCE_CODE || [];
-        const items = Array.isArray(rawLines) ? rawLines : [rawLines];
+        LOG.info(`_mapSourceCodeResult input keys: ${JSON.stringify(Object.keys(result))}`);
+
+        // Extract table rows from <item> wrapper
+        let rawLines = result.EtSourceCode || result.ET_SOURCE_CODE || result.etSourceCode || [];
+        if (rawLines && rawLines.item !== undefined) {
+            rawLines = rawLines.item;
+        }
+        const items = Array.isArray(rawLines) ? rawLines : (rawLines ? [rawLines] : []);
 
         const sourceLines = items
             .filter(line => line)
             .map(line => ({
-                lineNumber: parseInt(line.LineNumber || line.LINE_NUMBER || 0),
-                sourceLine: line.SourceLine || line.SOURCE_LINE || '',
-                includeName: line.IncludeName || line.INCLUDE_NAME || '',
-                section: line.Section || line.SECTION || ''
+                lineNumber: parseInt(line.LineNumber || line.LINE_NUMBER || line.lineNumber || 0),
+                sourceLine: line.SourceLine || line.SOURCE_LINE || line.sourceLine || '',
+                includeName: line.IncludeName || line.INCLUDE_NAME || line.includeName || '',
+                section: line.Section || line.SECTION || line.section || ''
             }));
 
-        const rawIncludes = result.EtIncludes || result.ET_INCLUDES || [];
-        const includes = (Array.isArray(rawIncludes) ? rawIncludes : [rawIncludes])
+        let rawIncludes = result.EtIncludes || result.ET_INCLUDES || result.etIncludes || [];
+        if (rawIncludes && rawIncludes.item !== undefined) {
+            rawIncludes = rawIncludes.item;
+        }
+        const includes = (Array.isArray(rawIncludes) ? rawIncludes : (rawIncludes ? [rawIncludes] : []))
             .filter(inc => inc)
             .map(inc => ({
-                includeName: inc.IncludeName || inc.INCLUDE_NAME,
-                includeType: inc.IncludeType || inc.INCLUDE_TYPE,
-                parentObject: inc.ParentObject || inc.PARENT_OBJECT,
-                lineCount: parseInt(inc.LineCount || inc.LINE_COUNT || 0)
+                includeName: inc.IncludeName || inc.INCLUDE_NAME || inc.includeName,
+                includeType: inc.IncludeType || inc.INCLUDE_TYPE || inc.includeType,
+                parentObject: inc.ParentObject || inc.PARENT_OBJECT || inc.parentObject,
+                lineCount: parseInt(inc.LineCount || inc.LINE_COUNT || inc.lineCount || 0)
             }));
 
         return {
-            evTitle: result.EvTitle || result.EV_TITLE || '',
-            evObjectType: result.EvObjectType || result.EV_OBJECT_TYPE || '',
-            evPackage: result.EvPackage || result.EV_PACKAGE || '',
-            evAuthor: result.EvAuthor || result.EV_AUTHOR || '',
-            evCreatedOn: result.EvCreatedOn || result.EV_CREATED_ON || '',
+            evTitle: result.EvTitle || result.EV_TITLE || result.evTitle || '',
+            evObjectType: result.EvObjectType || result.EV_OBJECT_TYPE || result.evObjectType || '',
+            evPackage: result.EvPackage || result.EV_PACKAGE || result.evPackage || '',
+            evAuthor: result.EvAuthor || result.EV_AUTHOR || result.evAuthor || '',
+            evCreatedOn: result.EvCreatedOn || result.EV_CREATED_ON || result.evCreatedOn || '',
             etSourceCode: sourceLines,
             etIncludes: includes
         };
