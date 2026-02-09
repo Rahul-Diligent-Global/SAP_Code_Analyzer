@@ -51,7 +51,7 @@ sap.ui.define([
 
             this._oBusyDialog = new BusyDialog({
                 title: "Analyzing Code",
-                text: "Sending code to Claude AI for analysis...\n\nThis may take a moment..."
+                text: "Sending code to Diligent AI for analysis...\n\nThis may take a moment..."
             });
 
             this.getOwnerComponent().getRouter().getRoute("OfflineAnalysis")
@@ -157,7 +157,7 @@ sap.ui.define([
 
             var sTypeLabel = this._getAnalysisTypeLabel(sAnalysisType);
             var that = this;
-            this._oBusyDialog.setText("Analyzing code with Claude AI...\n\nAnalysis Type: " + sTypeLabel + "\n\nThis may take a moment...");
+            this._oBusyDialog.setText("Analyzing code with Diligent AI...\n\nAnalysis Type: " + sTypeLabel + "\n\nThis may take a moment...");
             this._oBusyDialog.open();
 
             var oODataModel = this.getOwnerComponent().getModel();
@@ -329,7 +329,7 @@ sap.ui.define([
 
             this._oBusyDialog.setText(
                 "Generating document...\n\n" +
-                "Step 1: Analyzing uploaded code with Claude AI\n" +
+                "Step 1: Analyzing uploaded code with Diligent AI\n" +
                 "Step 2: Creating " + sFormat + " document\n\n" +
                 "This may take 30-60 seconds..."
             );
@@ -342,6 +342,7 @@ sap.ui.define([
             oContext.setParameter("sourceCode", sCode);
             oContext.setParameter("options", {
                 documentType: sFormat,
+                analysisType: sDocType || "BRD",
                 includeCode: bIncludeCode,
                 detailLevel: sDetailLevel,
                 customPrompt: sCustomPrompt || "",
@@ -468,7 +469,7 @@ sap.ui.define([
                         class: "sapUiSmallMargin",
                         items: [
                             new sap.m.MessageStrip({
-                                text: "Templates define how Claude AI structures the analysis documents. Create templates for BRD, Functional Spec, Technical Spec, or Code Review with custom prompts and sections.",
+                                text: "Templates define how Diligent AI structures the analysis documents. Create templates for BRD, Functional Spec, Technical Spec, or Code Review with custom prompts and sections.",
                                 type: "Information",
                                 showIcon: true,
                                 class: "sapUiSmallMarginBottom"
@@ -592,7 +593,7 @@ sap.ui.define([
                             new sap.ui.core.Title({ text: "AI Prompt Instructions" }),
                             new Label({ text: "Custom Prompt" }),
                             new TextArea("offlineNewTplPrompt", {
-                                placeholder: "Custom instructions for Claude AI when using this template.\n\nExample:\n- Focus on SAP SD module integration points\n- Include data migration requirements\n- Use customer's terminology: 'Sales Order' instead of 'SO'",
+                                placeholder: "Custom instructions for Diligent AI when using this template.\n\nExample:\n- Focus on SAP SD module integration points\n- Include data migration requirements\n- Use customer's terminology: 'Sales Order' instead of 'SO'",
                                 rows: 6, width: "100%"
                             }),
 
@@ -715,7 +716,7 @@ sap.ui.define([
                             new Label({ text: "Custom Prompt" }),
                             new TextArea("offlineEditTplPrompt", {
                                 value: oTemplate.promptTemplate || "",
-                                placeholder: "Custom instructions for Claude AI...",
+                                placeholder: "Custom instructions for Diligent AI...",
                                 rows: 6, width: "100%"
                             }),
 
