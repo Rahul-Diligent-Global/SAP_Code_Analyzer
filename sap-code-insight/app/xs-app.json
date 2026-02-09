@@ -16,7 +16,8 @@
             "target": "/api/$1",
             "authenticationType": "xsuaa",
             "destination": "srv-api",
-            "csrfProtection": true
+            "csrfProtection": true,
+            "timeout": 300000
         },
         {
             "source": "^(.*)$",

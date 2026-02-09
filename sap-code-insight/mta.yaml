@@ -50,6 +50,8 @@ modules:
     parameters:
       memory: 256M
       disk-quota: 512M
+    properties:
+      INCOMING_CONNECTION_TIMEOUT: 300000
     requires:
       - name: codeinsight-auth
       - name: srv-api
@@ -58,6 +60,7 @@ modules:
           name: srv-api
           url: ~{srv-url}
           forwardAuthToken: true
+          timeout: 300000
 
   # ═══════════════════════════════════════════════════════════
   # HANA DB Deployer
