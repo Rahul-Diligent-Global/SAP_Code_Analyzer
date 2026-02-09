@@ -17,7 +17,9 @@
                 <VBox class="codeInsightHeader">
                     <HBox alignItems="Center" justifyContent="SpaceBetween" class="codeInsightHeaderInner">
                         <HBox alignItems="Center">
-                            <html:img src="images/diligent-logo.svg" class="diligentLogo" alt="Diligent"/>
+                            <html:div class="diligentLogoWrap">
+                                <html:img src="images/diligent-logo.png" class="diligentLogo" alt="Diligent"/>
+                            </html:div>
                             <VBox class="sapUiSmallMarginBegin">
                                 <Title text="SAP Code Insight" level="H3" class="codeInsightTitle"/>
                                 <Label text="AI-Powered ABAP Code Analysis" class="codeInsightSubtitle"/>
