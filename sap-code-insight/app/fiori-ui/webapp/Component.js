@@ -29,6 +29,8 @@ sap.ui.define([
                 analysis: null,
                 documentGenerating: false,
                 selectedCategory: "ALL",
+                selectedNamespace: "Z",
+                customNamespace: "",
                 searchQuery: "",
                 objectCount: 0,
                 isAdmin: false

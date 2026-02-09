@@ -131,12 +131,18 @@ sap.ui.define([
             }
         },
 
+        onNamespaceChange: function () {
+            // Show/hide custom namespace input when "/" is selected
+            this._oViewModel.setProperty("/customNamespace", "");
+        },
+
         onRefreshObjects: function () {
             var that = this;
             this._oViewModel.setProperty("/busy", true);
 
+            var sNamespace = this._getSelectedNamespace();
             MessageBox.confirm(
-                "This will refresh all custom objects from the SAP system. Continue?",
+                "This will refresh all custom objects from the SAP system with namespace '" + sNamespace + "'. Continue?",
                 {
                     title: "Refresh Objects",
                     onClose: function (oAction) {
@@ -150,14 +156,27 @@ sap.ui.define([
             );
         },
 
+        _getSelectedNamespace: function () {
+            var sNs = this._oViewModel.getProperty("/selectedNamespace") || "Z";
+            if (sNs === "/") {
+                var sCustom = this._oViewModel.getProperty("/customNamespace") || "";
+                return sCustom || "/";
+            }
+            if (sNs === "ALL") {
+                return "*";
+            }
+            return sNs;
+        },
+
         _callRefreshAction: function (bRetry) {
             var that = this;
             var oModel = this.getOwnerComponent().getModel();
+            var sNamespace = this._getSelectedNamespace();
 
             var oContext = oModel.bindContext("/refreshObjects(...)");
             oContext.setParameter("filter", {
                 objectType: "ALL",
-                namespace: "Z",
+                namespace: sNamespace,
                 maxRows: 1000
             });
 

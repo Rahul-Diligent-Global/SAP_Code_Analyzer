@@ -2,6 +2,7 @@
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
+    xmlns:html="http://www.w3.org/1999/xhtml"
     controllerName="com.sap.codeinsight.controller.ObjectList">
 
     <Page id="objectListPage"
@@ -16,7 +17,7 @@
                 <VBox class="codeInsightHeader">
                     <HBox alignItems="Center" justifyContent="SpaceBetween" class="codeInsightHeaderInner">
                         <HBox alignItems="Center">
-                            <core:Icon src="sap-icon://syntax" class="codeInsightLogo"/>
+                            <html:img src="images/diligent-logo.svg" class="diligentLogo" alt="Diligent"/>
                             <VBox class="sapUiSmallMarginBegin">
                                 <Title text="SAP Code Insight" level="H3" class="codeInsightTitle"/>
                                 <Label text="AI-Powered ABAP Code Analysis" class="codeInsightSubtitle"/>
@@ -55,7 +56,7 @@
                 <VBox class="sapUiSmallMargin">
 
                     <!-- Filter Bar -->
-                    <HBox class="sapUiSmallMarginBottom" alignItems="Center">
+                    <HBox class="sapUiSmallMarginBottom" alignItems="Center" wrap="Wrap">
                         <Label text="Category:" class="sapUiSmallMarginEnd" design="Bold"/>
                         <Select id="categoryFilter"
                                 selectedKey="{viewModel>/selectedCategory}"
@@ -71,6 +72,26 @@
                                 <core:Item key="INCLUDE" text="Includes"/>
                             </items>
                         </Select>
+
+                        <Label text="Namespace:" class="sapUiSmallMarginBegin sapUiSmallMarginEnd" design="Bold"/>
+                        <Select id="namespaceFilter"
+                                selectedKey="{viewModel>/selectedNamespace}"
+                                change=".onNamespaceChange">
+                            <items>
+                                <core:Item key="Z" text="Z* (Customer)"/>
+                                <core:Item key="Y" text="Y* (Customer)"/>
+                                <core:Item key="/" text="/* (Namespace)"/>
+                                <core:Item key="ALL" text="All Namespaces"/>
+                            </items>
+                        </Select>
+
+                        <Input id="customNamespace"
+                               placeholder="e.g. /TRM/"
+                               width="120px"
+                               visible="{= ${viewModel>/selectedNamespace} === '/'}"
+                               value="{viewModel>/customNamespace}"
+                               class="sapUiSmallMarginBegin"
+                               submit=".onRefreshObjects"/>
 
                         <ToolbarSpacer/>
 
