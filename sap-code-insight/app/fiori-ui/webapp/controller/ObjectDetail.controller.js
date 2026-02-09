@@ -711,20 +711,37 @@ sap.ui.define([
         _loadTemplates: function () {
             var that = this;
             var oModel = this.getOwnerComponent().getModel();
+            var aLocalTemplates = this._oTemplateModel.getProperty("/templates") || [];
 
             try {
                 var oListBinding = oModel.bindList("/DocumentTemplates");
                 oListBinding.requestContexts(0, 100).then(function (aContexts) {
-                    var aTemplates = aContexts.map(function (oCtx) {
+                    var aBackendTemplates = aContexts.map(function (oCtx) {
                         return oCtx.getObject();
                     });
-                    that._oTemplateModel.setProperty("/templates", aTemplates);
+
+                    // Merge: backend templates + locally created ones (by ID)
+                    var mIds = {};
+                    var aMerged = [];
+                    aBackendTemplates.forEach(function (t) { mIds[t.ID] = true; aMerged.push(t); });
+                    aLocalTemplates.forEach(function (t) {
+                        if (!mIds[t.ID]) { aMerged.push(t); }
+                    });
+
+                    if (aMerged.length === 0) {
+                        that._loadMockTemplates();
+                    } else {
+                        that._oTemplateModel.setProperty("/templates", aMerged);
+                    }
                 }).catch(function () {
-                    // Load mock templates for dev mode
-                    that._loadMockTemplates();
+                    if (aLocalTemplates.length === 0) {
+                        that._loadMockTemplates();
+                    }
                 });
             } catch (e) {
-                that._loadMockTemplates();
+                if (aLocalTemplates.length === 0) {
+                    that._loadMockTemplates();
+                }
             }
         },
 
@@ -804,7 +821,7 @@ sap.ui.define([
                             new VBox({
                                 items: [
                                     new sap.m.MessageStrip({
-                                        text: "Upload a reference document (.docx, .txt) and the AI will adopt its structure, tone, and formatting style when generating documents.",
+                                        text: "Upload a reference document (.txt) and the AI will adopt its structure, tone, and formatting style. Save Word docs as .txt first, or paste content below.",
                                         type: "Information", showIcon: true,
                                         class: "sapUiTinyMarginBottom"
                                     }),
@@ -1024,6 +1041,22 @@ sap.ui.define([
             if (!aFiles || aFiles.length === 0) return;
 
             var oFile = aFiles[0];
+            var sFileName = oFile.name.toLowerCase();
+
+            // Check if .docx (binary ZIP) - cannot read as text
+            if (sFileName.endsWith(".docx") || sFileName.endsWith(".doc")) {
+                MessageBox.warning(
+                    "Word documents (.docx/.doc) are binary files and cannot be read directly.\n\n" +
+                    "Please save your reference document as a .txt file first:\n" +
+                    "  1. Open the document in Word\n" +
+                    "  2. File > Save As > Plain Text (.txt)\n" +
+                    "  3. Upload the .txt file here\n\n" +
+                    "Or copy-paste the document content into the text area below."
+                );
+                oFileUploader.clear();
+                return;
+            }
+
             var oNameField = sap.ui.getCore().byId(sNameFieldId);
             if (oNameField) oNameField.setText("Reference: " + oFile.name);
 
