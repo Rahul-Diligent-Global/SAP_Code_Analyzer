@@ -121,6 +121,21 @@ sap.ui.define([
                 aFilters.push(new Filter("category", FilterOperator.EQ, sCategory));
             }
 
+            // Namespace filter - filter by object name prefix
+            var sNs = this._oViewModel.getProperty("/selectedNamespace") || "Z";
+            if (sNs && sNs !== "ALL") {
+                if (sNs === "/") {
+                    var sCustom = this._oViewModel.getProperty("/customNamespace") || "";
+                    if (sCustom) {
+                        aFilters.push(new Filter("objectName", FilterOperator.StartsWith, sCustom));
+                    } else {
+                        aFilters.push(new Filter("objectName", FilterOperator.StartsWith, "/"));
+                    }
+                } else {
+                    aFilters.push(new Filter("objectName", FilterOperator.StartsWith, sNs));
+                }
+            }
+
             var oTable = this.byId("objectTable");
             var oBinding = oTable.getBinding("items");
             if (oBinding) {
@@ -132,8 +147,9 @@ sap.ui.define([
         },
 
         onNamespaceChange: function () {
-            // Show/hide custom namespace input when "/" is selected
+            // Clear custom namespace input and apply filter
             this._oViewModel.setProperty("/customNamespace", "");
+            this._applyFilters();
         },
 
         onRefreshObjects: function () {

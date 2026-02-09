@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 70" fill="none">
-  <!-- Arrow shapes -->
-  <polygon points="5,35 20,15 20,28 35,28 35,42 20,42 20,55" fill="#E8A020"/>
-  <polygon points="18,35 33,10 33,25 50,25 50,45 33,45 33,60" fill="#F0B030"/>
-  <polygon points="32,35 50,5 50,22 70,22 70,48 50,48 50,65" fill="#F8C840"/>
+  <!-- Chevron arrows - 3 stacked, getting larger -->
+  <path d="M8,35 L22,12 L22,23 L36,23 L36,47 L22,47 L22,58 Z" fill="#D4880E" opacity="0.85"/>
+  <path d="M20,35 L37,8 L37,21 L53,21 L53,49 L37,49 L37,62 Z" fill="#E8A020"/>
+  <path d="M33,35 L53,3 L53,19 L72,19 L72,51 L53,51 L53,67 Z" fill="#F5C03C"/>
   <!-- Diligent text -->
-  <text x="78" y="42" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#FFFFFF" letter-spacing="1">Diligent</text>
+  <text x="80" y="40" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF" letter-spacing="1.5">Diligent</text>
   <!-- Tagline -->
-  <text x="78" y="58" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="rgba(255,255,255,0.75)" letter-spacing="0.5">Consulting with Commitment</text>
+  <text x="80" y="57" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="10" fill="rgba(255,255,255,0.7)" letter-spacing="0.8" font-style="italic">Consulting with Commitment</text>
 </svg>
