@@ -123,7 +123,7 @@ class DocumentGenerator {
         // COVER PAGE
         // ═══════════════════════════════════════════════════════════
         children.push(
-            new Paragraph({ spacing: { before: 3000 } }),
+            new Paragraph({ spacing: { before: 2000 } }),
             new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [new TextRun({
@@ -136,26 +136,90 @@ class DocumentGenerator {
                     text: `SAP ABAP Object: ${sourceResult.objectName}`,
                     size: 28, color: '666666'
                 })]
-            }),
-            new Paragraph({ spacing: { before: 200 }, alignment: AlignmentType.CENTER,
-                children: [new TextRun({
-                    text: sourceResult.title || '',
-                    size: 24, italics: true, color: '888888'
-                })]
-            }),
-            new Paragraph({ spacing: { before: 600 }, alignment: AlignmentType.CENTER,
-                children: [new TextRun({
-                    text: `Version: ${analysis.documentVersion || '1.0'}`,
-                    size: 22, color: '666666'
-                })]
-            }),
-            new Paragraph({ alignment: AlignmentType.CENTER,
-                children: [new TextRun({
-                    text: `Date: ${todayDate}`,
-                    size: 22, color: '666666'
-                })]
-            }),
-            new Paragraph({ alignment: AlignmentType.CENTER,
+            })
+        );
+
+        // Document Metadata Table (from reference template - client info, project name, etc.)
+        if (analysis.documentMetadata && analysis.documentMetadata.length > 0) {
+            children.push(new Paragraph({ spacing: { before: 600 } }));
+
+            const metaBorder = { style: BorderStyle.SINGLE, size: 1, color: '999999' };
+            const metaBorders = { top: metaBorder, bottom: metaBorder, left: metaBorder, right: metaBorder };
+            const metaLabelShading = { fill: 'F2F2F2', type: ShadingType.CLEAR };
+
+            const metaRows = analysis.documentMetadata.map(item => new TableRow({
+                children: [
+                    new TableCell({
+                        borders: metaBorders,
+                        width: { size: 3600, type: WidthType.DXA },
+                        shading: metaLabelShading,
+                        margins: cellMargins,
+                        children: [new Paragraph({
+                            children: [new TextRun({ text: String(item.label || ''), bold: true, size: 20, font: 'Calibri' })]
+                        })]
+                    }),
+                    new TableCell({
+                        borders: metaBorders,
+                        width: { size: 5760, type: WidthType.DXA },
+                        margins: cellMargins,
+                        children: [new Paragraph({
+                            children: [new TextRun({ text: String(item.value || ''), size: 20, font: 'Calibri' })]
+                        })]
+                    })
+                ]
+            }));
+
+            children.push(new Table({
+                width: { size: 9360, type: WidthType.DXA },
+                columnWidths: [3600, 5760],
+                rows: metaRows
+            }));
+        }
+
+        // Version History Table (from reference template)
+        if (analysis.versionHistory && analysis.versionHistory.length > 0) {
+            children.push(
+                new Paragraph({ spacing: { before: 400 } }),
+                new Paragraph({ spacing: { after: 100 },
+                    children: [new TextRun({ text: 'Document Version History', bold: true, size: 22, color: '1F4E79' })]
+                })
+            );
+
+            children.push(this._createTable(
+                ['Date', 'Version', 'Description', 'Prepared By', 'Approved By'],
+                analysis.versionHistory.map(v => [
+                    v.date || '', v.version || '', v.description || '',
+                    v.preparedBy || '', v.approvedBy || ''
+                ]),
+                [1600, 1000, 3160, 2000, 1600],
+                { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+            ));
+        } else {
+            // Fallback: simple cover info when no metadata tables
+            children.push(
+                new Paragraph({ spacing: { before: 200 }, alignment: AlignmentType.CENTER,
+                    children: [new TextRun({
+                        text: sourceResult.title || '',
+                        size: 24, italics: true, color: '888888'
+                    })]
+                }),
+                new Paragraph({ spacing: { before: 600 }, alignment: AlignmentType.CENTER,
+                    children: [new TextRun({
+                        text: `Version: ${analysis.documentVersion || '1.0'}`,
+                        size: 22, color: '666666'
+                    })]
+                }),
+                new Paragraph({ alignment: AlignmentType.CENTER,
+                    children: [new TextRun({
+                        text: `Date: ${todayDate}`,
+                        size: 22, color: '666666'
+                    })]
+                })
+            );
+        }
+
+        children.push(
+            new Paragraph({ spacing: { before: 300 }, alignment: AlignmentType.CENTER,
                 children: [new TextRun({
                     text: `Generated by Diligent Code Insight`,
                     size: 20, italics: true, color: '999999'
@@ -405,23 +469,62 @@ class DocumentGenerator {
         }
 
         // ═══════════════════════════════════════════════════════════
-        // 11. APPENDIX
+        // CUSTOM SECTIONS (from reference template)
+        // ═══════════════════════════════════════════════════════════
+        if (analysis.customSections && analysis.customSections.length > 0) {
+            let customIdx = 11;
+            for (const section of analysis.customSections) {
+                if (!section.title) continue;
+
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1,
+                        children: [new TextRun(`${customIdx}. ${section.title}`)]
+                    })
+                );
+
+                if (section.content) {
+                    children.push(
+                        new Paragraph({ spacing: { after: 200 },
+                            children: [new TextRun({ text: section.content })]
+                        })
+                    );
+                }
+
+                if (section.tableData && section.tableData.headers && section.tableData.rows) {
+                    const numCols = section.tableData.headers.length;
+                    const colWidth = Math.floor(9360 / numCols);
+                    const colWidths = section.tableData.headers.map(() => colWidth);
+
+                    children.push(this._createTable(
+                        section.tableData.headers,
+                        section.tableData.rows,
+                        colWidths,
+                        { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                    ));
+                }
+
+                customIdx++;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // APPENDIX
         // ═══════════════════════════════════════════════════════════
         if (analysis.appendix) {
             children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('11. Appendix')] })
+                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('Appendix')] })
             );
 
             if (analysis.appendix.technicalNotes) {
                 children.push(
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('11.1 Technical Notes')] }),
+                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Technical Notes')] }),
                     new Paragraph({ children: [new TextRun(analysis.appendix.technicalNotes)] })
                 );
             }
 
             if (analysis.appendix.assumptions?.length > 0) {
                 children.push(
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('11.2 Assumptions')] })
+                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Assumptions')] })
                 );
                 for (const a of analysis.appendix.assumptions) {
                     children.push(new Paragraph({
@@ -433,7 +536,7 @@ class DocumentGenerator {
 
             if (analysis.appendix.openQuestions?.length > 0) {
                 children.push(
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('11.3 Open Questions')] })
+                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Open Questions')] })
                 );
                 for (const q of analysis.appendix.openQuestions) {
                     children.push(new Paragraph({
@@ -561,18 +664,36 @@ class DocumentGenerator {
             const pageWidth = doc.page.width - 144; // Content width
 
             // ─── Cover Page ───
-            doc.moveDown(6);
+            doc.moveDown(4);
             doc.fontSize(28).fillColor('#1F4E79')
                .text(analysis.documentTitle || `${sourceResult.objectName} - ${docTypeLabel}`, { align: 'center' });
             doc.moveDown(1);
             doc.fontSize(14).fillColor('#666666')
                .text(`SAP ABAP Object: ${sourceResult.objectName}`, { align: 'center' });
-            doc.fontSize(12)
-               .text(sourceResult.title || '', { align: 'center' });
-            doc.moveDown(2);
+
+            // Document Metadata Table
+            if (analysis.documentMetadata && analysis.documentMetadata.length > 0) {
+                doc.moveDown(1.5);
+                const tableLeft = 120;
+                const labelWidth = 180;
+                const valueWidth = 280;
+                let tableY = doc.y;
+                const rowHeight = 22;
+
+                for (const item of analysis.documentMetadata) {
+                    doc.fontSize(10).fillColor('#333333');
+                    doc.rect(tableLeft, tableY, labelWidth, rowHeight).stroke('#999999');
+                    doc.rect(tableLeft + labelWidth, tableY, valueWidth, rowHeight).stroke('#999999');
+                    doc.font('Helvetica-Bold').text(String(item.label || ''), tableLeft + 5, tableY + 6, { width: labelWidth - 10 });
+                    doc.font('Helvetica').text(String(item.value || ''), tableLeft + labelWidth + 5, tableY + 6, { width: valueWidth - 10 });
+                    tableY += rowHeight;
+                }
+
+                doc.y = tableY + 10;
+            }
+
+            doc.moveDown(1);
             doc.fontSize(11).fillColor('#888888')
-               .text(`Version: ${analysis.documentVersion || '1.0'}`, { align: 'center' })
-               .text(`Date: ${todayDate}`, { align: 'center' })
                .text('Generated by Diligent Code Insight', { align: 'center' });
 
             doc.addPage();

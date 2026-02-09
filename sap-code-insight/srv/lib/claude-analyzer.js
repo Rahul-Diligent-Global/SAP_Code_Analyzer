@@ -202,9 +202,34 @@ BRD FOCUS:
                 break;
         }
 
+        // Build reference template priority instructions
+        let referenceInstructions = '';
+        if (referenceContent) {
+            referenceInstructions = `
+
+*** HIGHEST PRIORITY - REFERENCE TEMPLATE ***
+The user has provided a reference document below. You MUST:
+1. ADOPT the reference document's structure, section organization, and flow
+2. MATCH the reference document's tone, language style, and level of formality
+3. INCLUDE similar metadata sections (e.g., client info table, version history, document control)
+4. FOLLOW the same section naming conventions and ordering as the reference
+5. POPULATE the "documentMetadata" field with key-value pairs matching the reference's cover page metadata
+6. POPULATE the "versionHistory" array matching the reference's document revision table format
+
+The reference document structure takes PRIORITY over the default JSON schema below.
+Fill in the "documentMetadata" and "versionHistory" fields based on what you see in the reference document.
+Also add any custom sections from the reference document into the "customSections" array.
+
+---BEGIN REFERENCE DOCUMENT---
+${referenceContent}
+---END REFERENCE DOCUMENT---
+*** END REFERENCE TEMPLATE ***
+`;
+        }
+
         let prompt = `${roleDescription}
 ${taskDescription}
-
+${referenceInstructions}
 DOCUMENT TYPE: ${typeLabel}
 
 CRITICAL INSTRUCTIONS:
@@ -229,17 +254,10 @@ IMPORTANT:
 - Use professional business language, not technical jargon
 - Include specific field names, table names mapped to business terminology
 - For each business rule, reference the corresponding code section
-- All text values should be properly escaped for JSON`;
-
-        if (referenceContent) {
-            prompt += `\n\nREFERENCE TEMPLATE DOCUMENT:
-The user has provided a reference document. Adopt its structure, tone, and formatting style.
-Generate the output following the same pattern, sections, and level of detail as this reference:
-
----BEGIN REFERENCE---
-${referenceContent}
----END REFERENCE---`;
-        }
+- All text values should be properly escaped for JSON
+- The "documentMetadata" field is an array of key-value pairs for the cover page (e.g., Client Name, Project Name, Module, WRICEF Number, Version, Date, Type of Development, Complexity)
+- The "versionHistory" array captures document revision tracking (date, version, description, preparedBy, approvedBy)
+- The "customSections" array allows you to add any additional sections from the reference template that don't fit the standard schema`;
 
         return prompt;
     }
@@ -404,6 +422,26 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
             documentTitle: `${typeLabel} - ${objectName}`,
             documentVersion: '1.0',
             preparedDate: new Date().toISOString().split('T')[0],
+
+            documentMetadata: [
+                { label: 'Client Name', value: 'Sample Client' },
+                { label: 'Project Name', value: objectName },
+                { label: 'Module', value: 'Custom Development' },
+                { label: 'Version', value: '0.1' },
+                { label: 'Date', value: new Date().toISOString().split('T')[0] },
+                { label: 'Type of Development', value: 'Enhancement' },
+                { label: 'Complexity', value: 'Medium' }
+            ],
+
+            versionHistory: [
+                {
+                    date: new Date().toISOString().split('T')[0],
+                    version: '0.1',
+                    description: 'Draft Version',
+                    preparedBy: 'Diligent Code Insight',
+                    approvedBy: ''
+                }
+            ],
 
             executiveSummary: `This document describes the business requirements for the SAP ABAP custom development "${objectName}" (${objectType || 'Program'}). ${title || 'This object'} implements custom business logic within the SAP system. The program contains ${totalLines} lines of code across ${forms.length || 1} functional sections. This analysis identifies the key business processes, data flows, and integration points.`,
 
@@ -575,9 +613,26 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
      */
     _getDefaultSections() {
         return {
-            documentTitle: "string - Title of the BRD document",
+            documentTitle: "string - Title of the document (must match the requested document type)",
             documentVersion: "string - Version number (e.g., 1.0)",
             preparedDate: "string - Current date",
+
+            documentMetadata: [
+                {
+                    label: "string - Field label (e.g., Client Name, Project Name, Module, WRICEF Number, Version, Date, Type of Development, Complexity)",
+                    value: "string - Field value"
+                }
+            ],
+
+            versionHistory: [
+                {
+                    date: "string - Date of revision",
+                    version: "string - Version number",
+                    description: "string - Description of changes",
+                    preparedBy: "string - Author name",
+                    approvedBy: "string - Approver name (if known, else empty)"
+                }
+            ],
 
             executiveSummary: "string - 2-3 paragraph summary of the business functionality",
 
@@ -695,7 +750,18 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
                 technicalNotes: "string - Additional technical notes",
                 assumptions: "array of strings - Assumptions made during analysis",
                 openQuestions: "array of strings - Questions that need business clarification"
-            }
+            },
+
+            customSections: [
+                {
+                    title: "string - Section title (from reference template)",
+                    content: "string - Section content as paragraph text",
+                    tableData: {
+                        headers: "array of strings - Table column headers (if section contains a table)",
+                        rows: "array of arrays of strings - Table data rows (if section contains a table)"
+                    }
+                }
+            ]
         };
     }
 }

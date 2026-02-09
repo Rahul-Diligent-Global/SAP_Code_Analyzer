@@ -940,6 +940,26 @@ sap.ui.define([
                 aHtml.push("</div>");
             }
 
+            // Document Metadata Table
+            if (oAnalysis.documentMetadata && oAnalysis.documentMetadata.length > 0) {
+                aHtml.push(this._sectionHeader("Document Information"));
+                aHtml.push(this._htmlTable(
+                    ["Field", "Value"],
+                    oAnalysis.documentMetadata.map(function (m) { return [m.label, m.value]; }),
+                    ["30%", "70%"]
+                ));
+            }
+
+            // Version History
+            if (oAnalysis.versionHistory && oAnalysis.versionHistory.length > 0) {
+                aHtml.push(this._sectionHeader("Version History"));
+                aHtml.push(this._htmlTable(
+                    ["Date", "Version", "Description", "Prepared By", "Approved By"],
+                    oAnalysis.versionHistory.map(function (v) { return [v.date, v.version, v.description, v.preparedBy, v.approvedBy]; }),
+                    ["15%", "10%", "35%", "20%", "20%"]
+                ));
+            }
+
             // Executive Summary
             if (oAnalysis.executiveSummary) {
                 aHtml.push(this._sectionHeader("Executive Summary"));
@@ -1083,6 +1103,23 @@ sap.ui.define([
                     oAnalysis.appendix.openQuestions.forEach(function (q) { aHtml.push("<li>" + this._escapeHtml(q) + "</li>"); }.bind(this));
                     aHtml.push("</ol>");
                 }
+            }
+
+            // Custom Sections (from reference template)
+            if (oAnalysis.customSections && oAnalysis.customSections.length > 0) {
+                oAnalysis.customSections.forEach(function (section) {
+                    if (!section.title) return;
+                    aHtml.push(this._sectionHeader(section.title));
+                    if (section.content) {
+                        aHtml.push("<p style='line-height:1.6;'>" + this._escapeHtml(section.content) + "</p>");
+                    }
+                    if (section.tableData && section.tableData.headers && section.tableData.rows) {
+                        var widths = section.tableData.headers.map(function () {
+                            return Math.floor(100 / section.tableData.headers.length) + "%";
+                        });
+                        aHtml.push(this._htmlTable(section.tableData.headers, section.tableData.rows, widths));
+                    }
+                }.bind(this));
             }
 
             // Fallback: raw analysis
