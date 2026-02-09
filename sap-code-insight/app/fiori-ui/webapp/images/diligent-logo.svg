@@ -1,10 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 70" fill="none">
-  <!-- Chevron arrows - 3 stacked, getting larger -->
-  <path d="M8,35 L22,12 L22,23 L36,23 L36,47 L22,47 L22,58 Z" fill="#D4880E" opacity="0.85"/>
-  <path d="M20,35 L37,8 L37,21 L53,21 L53,49 L37,49 L37,62 Z" fill="#E8A020"/>
-  <path d="M33,35 L53,3 L53,19 L72,19 L72,51 L53,51 L53,67 Z" fill="#F5C03C"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 75" fill="none">
+  <defs>
+    <linearGradient id="flame1" x1="0" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#C06A00"/>
+      <stop offset="100%" stop-color="#E8A020"/>
+    </linearGradient>
+    <linearGradient id="flame2" x1="0" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#D48010"/>
+      <stop offset="100%" stop-color="#F0B830"/>
+    </linearGradient>
+    <linearGradient id="flame3" x1="0" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#E09818"/>
+      <stop offset="100%" stop-color="#FCD050"/>
+    </linearGradient>
+  </defs>
+  <!-- Three curved swoosh/flame shapes -->
+  <path d="M12,60 C12,60 8,45 16,30 C24,15 30,12 30,12 C30,12 22,28 22,38 C22,48 28,55 28,55 Z" fill="url(#flame1)"/>
+  <path d="M22,65 C22,65 15,46 26,26 C37,6 45,2 45,2 C45,2 35,22 34,34 C33,46 40,58 40,58 Z" fill="url(#flame2)"/>
+  <path d="M34,68 C34,68 24,46 38,20 C52,-2 62,-5 62,-5 C62,-5 50,18 48,32 C46,48 55,62 55,62 Z" fill="url(#flame3)"/>
   <!-- Diligent text -->
-  <text x="80" y="40" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF" letter-spacing="1.5">Diligent</text>
+  <text x="68" y="44" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="32" font-weight="600" fill="#FFFFFF" letter-spacing="0.5">Diligent</text>
   <!-- Tagline -->
-  <text x="80" y="57" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="10" fill="rgba(255,255,255,0.7)" letter-spacing="0.8" font-style="italic">Consulting with Commitment</text>
+  <text x="70" y="62" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="rgba(255,255,255,0.8)" letter-spacing="0.3" font-style="italic">Consulting with commitment</text>
 </svg>
