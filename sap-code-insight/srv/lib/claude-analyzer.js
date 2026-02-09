@@ -202,34 +202,97 @@ BRD FOCUS:
                 break;
         }
 
-        // Build reference template priority instructions
-        let referenceInstructions = '';
+        // Build the prompt differently based on whether a reference template is provided
+        let prompt;
+
         if (referenceContent) {
-            referenceInstructions = `
+            // --- REFERENCE TEMPLATE MODE: Use flexible sections-based schema ---
+            const flexibleSchema = {
+                documentTitle: "string - Title of the document",
+                documentMetadata: [
+                    {
+                        label: "string - Field label (e.g., Client Name, Project Name, Module)",
+                        value: "string - Field value"
+                    }
+                ],
+                versionHistory: [
+                    {
+                        date: "string - Date of revision",
+                        version: "string - Version number",
+                        description: "string - Description of changes",
+                        preparedBy: "string - Author name",
+                        approvedBy: "string - Approver name (if known, else empty)"
+                    }
+                ],
+                headerText: "string - text that should appear in the document header (e.g. 'Functional Specification Document')",
+                sections: [
+                    {
+                        number: "string - section number (e.g. '1', '1.1', '2.3.1')",
+                        title: "string - section title matching reference template",
+                        level: "number - 1 for main heading, 2 for sub-heading, 3 for sub-sub",
+                        content: "string - paragraph text content (can be multi-paragraph separated by \\n\\n)",
+                        bulletPoints: ["string - bullet points if section has a list"],
+                        tableData: {
+                            headers: ["string - table column headers"],
+                            rows: [["string - table data cells"]]
+                        }
+                    }
+                ]
+            };
+
+            prompt = `${roleDescription}
+${taskDescription}
 
 *** HIGHEST PRIORITY - REFERENCE TEMPLATE ***
 The user has provided a reference document below. You MUST:
-1. ADOPT the reference document's structure, section organization, and flow
-2. MATCH the reference document's tone, language style, and level of formality
-3. INCLUDE similar metadata sections (e.g., client info table, version history, document control)
-4. FOLLOW the same section naming conventions and ordering as the reference
-5. POPULATE the "documentMetadata" field with key-value pairs matching the reference's cover page metadata
-6. POPULATE the "versionHistory" array matching the reference's document revision table format
-
-The reference document structure takes PRIORITY over the default JSON schema below.
-Fill in the "documentMetadata" and "versionHistory" fields based on what you see in the reference document.
-Also add any custom sections from the reference document into the "customSections" array.
+1. Follow the reference document's EXACT section structure, naming, and ordering
+2. Each section from the reference document should become a section in the "sections" array
+3. Use the same section numbering scheme as the reference
+4. Fill section content with analysis of the provided ABAP code
+5. Include tables where the reference has tables (use tableData)
+6. Set "headerText" to whatever text appears in the reference document's header (e.g. "Functional Specification Document")
+7. MATCH the reference document's tone, language style, and level of formality
+8. POPULATE the "documentMetadata" field with key-value pairs matching the reference's cover page metadata
+9. POPULATE the "versionHistory" array matching the reference's document revision table format
+10. Do NOT use the default schema fields (executiveSummary, businessOverview, functionalRequirements, etc.) - put ALL content in the "sections" array
 
 ---BEGIN REFERENCE DOCUMENT---
 ${referenceContent}
 ---END REFERENCE DOCUMENT---
 *** END REFERENCE TEMPLATE ***
-`;
-        }
 
-        let prompt = `${roleDescription}
+DOCUMENT TYPE: ${typeLabel}
+
+CRITICAL INSTRUCTIONS:
+1. Analyze the ABAP code thoroughly - understand every SELECT statement, BAPI call, module, form, method
+2. Determine all database tables used and their business meaning
+3. Identify integration points (BAPIs, RFCs, IDocs, APIs)
+${focusInstructions}
+
+DETAIL LEVEL: ${detailLevel || 'DETAILED'}
+- SUMMARY: High-level overview, 2-3 pages
+- DETAILED: Full document with all sections, 5-10 pages
+- COMPREHENSIVE: Complete specification with data mappings, 10+ pages
+
+OUTPUT FORMAT: You MUST return a valid JSON object with the following structure:
+${JSON.stringify(flexibleSchema, null, 2)}
+
+IMPORTANT:
+- Every section must contain substantive content derived from the actual code analysis
+- Use professional business language, not technical jargon
+- Include specific field names, table names mapped to business terminology
+- All text values should be properly escaped for JSON
+- The "documentMetadata" field is an array of key-value pairs for the cover page (e.g., Client Name, Project Name, Module, WRICEF Number, Version, Date, Type of Development, Complexity)
+- The "versionHistory" array captures document revision tracking (date, version, description, preparedBy, approvedBy)
+- The "sections" array is the ONLY place for document content - do NOT include executiveSummary, businessOverview, functionalRequirements, or any other top-level content fields
+- If a section in the reference contains a table, populate the "tableData" field for that section
+- If a section contains bullet points, populate the "bulletPoints" array
+- If a section is pure text, use the "content" field and leave bulletPoints and tableData empty/omitted`;
+        } else {
+            // --- DEFAULT MODE: Use the fixed schema ---
+            prompt = `${roleDescription}
 ${taskDescription}
-${referenceInstructions}
+
 DOCUMENT TYPE: ${typeLabel}
 
 CRITICAL INSTRUCTIONS:
@@ -258,6 +321,7 @@ IMPORTANT:
 - The "documentMetadata" field is an array of key-value pairs for the cover page (e.g., Client Name, Project Name, Module, WRICEF Number, Version, Date, Type of Development, Complexity)
 - The "versionHistory" array captures document revision tracking (date, version, description, preparedBy, approvedBy)
 - The "customSections" array allows you to add any additional sections from the reference template that don't fit the standard schema`;
+        }
 
         return prompt;
     }

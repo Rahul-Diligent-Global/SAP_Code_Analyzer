@@ -45,7 +45,7 @@ class DocumentGenerator {
             Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
             Header, Footer, AlignmentType, HeadingLevel, BorderStyle,
             WidthType, ShadingType, PageNumber, PageBreak, LevelFormat,
-            TableOfContents
+            TableOfContents, ImageRun
         } = require('docx');
 
         const analysisType = options?.analysisType || 'BRD';
@@ -242,265 +242,50 @@ class DocumentGenerator {
         );
 
         // ═══════════════════════════════════════════════════════════
-        // 1. EXECUTIVE SUMMARY
+        // DOCUMENT BODY SECTIONS
         // ═══════════════════════════════════════════════════════════
-        children.push(
-            new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('1. Executive Summary')] }),
-            new Paragraph({ spacing: { after: 200 },
-                children: [new TextRun({ text: analysis.executiveSummary || 'No executive summary available.' })]
-            })
-        );
-
-        // ═══════════════════════════════════════════════════════════
-        // 2. BUSINESS OVERVIEW
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.businessOverview) {
-            const bo = analysis.businessOverview;
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('2. Business Overview')] }),
-                new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.1 Purpose')] }),
-                new Paragraph({ children: [new TextRun(bo.purpose || '')] }),
-                new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.2 Business Process')] }),
-                new Paragraph({ children: [new TextRun(bo.businessProcess || '')] }),
-                new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.3 SAP Module')] }),
-                new Paragraph({ children: [new TextRun(bo.module || '')] }),
-                new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.4 Business Benefit')] }),
-                new Paragraph({ children: [new TextRun(bo.businessBenefit || '')] })
-            );
-
-            if (bo.stakeholders?.length > 0) {
-                children.push(
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.5 Stakeholders')] })
-                );
-                for (const sh of bo.stakeholders) {
-                    children.push(new Paragraph({
-                        numbering: { reference: 'bullets', level: 0 },
-                        children: [new TextRun(sh)]
-                    }));
-                }
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 3. FUNCTIONAL REQUIREMENTS
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.functionalRequirements?.length > 0) {
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('3. Functional Requirements')] })
-            );
-
-            children.push(this._createTable(
-                ['Req ID', 'Title', 'Description', 'Business Rule', 'Priority'],
-                analysis.functionalRequirements.map(req => [
-                    req.reqId || '', req.title || '', req.description || '',
-                    req.businessRule || '', req.priority || ''
-                ]),
-                [1200, 1800, 2800, 2400, 1160],
-                { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-            ));
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 4. DATA SPECIFICATION
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.dataSpecification) {
-            const ds = analysis.dataSpecification;
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('4. Data Specification')] })
-            );
-
-            // 4.1 Input Data
-            if (ds.inputData?.length > 0) {
-                children.push(
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('4.1 Input Data')] })
-                );
-                children.push(this._createTable(
-                    ['Field', 'SAP Table', 'Business Meaning', 'Mandatory', 'Validation'],
-                    ds.inputData.map(d => [
-                        d.fieldName || '', d.sapTable || '', d.businessMeaning || '',
-                        d.mandatory ? 'Yes' : 'No', d.validationRules || ''
-                    ]),
-                    [1600, 1600, 2400, 1000, 2760],
-                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-                ));
-            }
-
-            // 4.2 Output Data
-            if (ds.outputData?.length > 0) {
-                children.push(
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('4.2 Output Data')] })
-                );
-                children.push(this._createTable(
-                    ['Field', 'Description', 'Format', 'Business Use'],
-                    ds.outputData.map(d => [
-                        d.fieldName || '', d.description || '', d.format || '', d.businessUse || ''
-                    ]),
-                    [2000, 2800, 1560, 3000],
-                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-                ));
-            }
-
-            // 4.3 Tables Used
-            if (ds.tablesUsed?.length > 0) {
-                children.push(
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('4.3 SAP Tables Used')] })
-                );
-                children.push(this._createTable(
-                    ['Table', 'Description', 'Usage', 'Business Entity'],
-                    ds.tablesUsed.map(t => [
-                        t.tableName || '', t.tableDescription || '', t.usage || '', t.businessEntity || ''
-                    ]),
-                    [1800, 2800, 1200, 3560],
-                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-                ));
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 5. SELECTION SCREEN
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.selectionScreen) {
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('5. Selection Screen / User Interface')] }),
-                new Paragraph({ children: [new TextRun(analysis.selectionScreen.description || '')] })
-            );
-
-            if (analysis.selectionScreen.parameters?.length > 0) {
-                children.push(this._createTable(
-                    ['Parameter', 'Type', 'Description', 'Mandatory', 'Default'],
-                    analysis.selectionScreen.parameters.map(p => [
-                        p.paramName || '', p.type || '', p.description || '',
-                        p.mandatory ? 'Yes' : 'No', p.defaultValue || ''
-                    ]),
-                    [1800, 1200, 3160, 1000, 2200],
-                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-                ));
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 6. BUSINESS RULES
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.businessRules?.length > 0) {
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('6. Business Rules')] })
-            );
-            children.push(this._createTable(
-                ['Rule ID', 'Rule Name', 'Description', 'Condition', 'Action'],
-                analysis.businessRules.map(r => [
-                    r.ruleId || '', r.ruleName || '', r.description || '',
-                    r.condition || '', r.action || ''
-                ]),
-                [1000, 1600, 2760, 2000, 2000],
-                { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-            ));
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 7. INTEGRATION POINTS
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.integrationPoints?.length > 0) {
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('7. Integration Points')] })
-            );
-            children.push(this._createTable(
-                ['System', 'Type', 'Direction', 'Description', 'Data Exchanged'],
-                analysis.integrationPoints.map(i => [
-                    i.system || '', i.type || '', i.direction || '',
-                    i.description || '', i.dataExchanged || ''
-                ]),
-                [1600, 1200, 1200, 2760, 2600],
-                { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-            ));
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 8. AUTHORIZATION
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.authorization) {
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('8. Authorization & Security')] }),
-                new Paragraph({ children: [new TextRun(analysis.authorization.description || '')] })
-            );
-
-            if (analysis.authorization.checks?.length > 0) {
-                children.push(this._createTable(
-                    ['Auth Object', 'Description', 'Fields Checked'],
-                    analysis.authorization.checks.map(a => [
-                        a.authObject || '', a.description || '', a.fields || ''
-                    ]),
-                    [2400, 3960, 3000],
-                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-                ));
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 9. ERROR HANDLING
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.errorHandling?.length > 0) {
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('9. Error Handling')] })
-            );
-            children.push(this._createTable(
-                ['Error Code', 'Description', 'Business Impact', 'Resolution'],
-                analysis.errorHandling.map(e => [
-                    e.errorCode || '', e.description || '', e.businessImpact || '', e.resolution || ''
-                ]),
-                [1600, 2800, 2560, 2400],
-                { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-            ));
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 10. TEST SCENARIOS
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.testScenarios?.length > 0) {
-            children.push(
-                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('10. Test Scenarios')] })
-            );
-            children.push(this._createTable(
-                ['ID', 'Title', 'Precondition', 'Steps', 'Expected Result'],
-                analysis.testScenarios.map(t => [
-                    t.scenarioId || '', t.title || '', t.precondition || '',
-                    t.steps || '', t.expectedResult || ''
-                ]),
-                [800, 1600, 2000, 2560, 2400],
-                { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
-            ));
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // CUSTOM SECTIONS (from reference template)
-        // ═══════════════════════════════════════════════════════════
-        if (analysis.customSections && Array.isArray(analysis.customSections) && analysis.customSections.length > 0) {
-            let customIdx = 11;
-            for (const section of analysis.customSections) {
+        // Check if AI returned dynamic sections (reference template mode)
+        if (analysis.sections && Array.isArray(analysis.sections) && analysis.sections.length > 0) {
+            // ─── DYNAMIC SECTIONS MODE ───
+            // Render sections from AI response (reference template was used)
+            for (const section of analysis.sections) {
                 if (!section || !section.title) continue;
 
-                children.push(
-                    new Paragraph({ heading: HeadingLevel.HEADING_1,
-                        children: [new TextRun(`${customIdx}. ${String(section.title)}`)]
-                    })
-                );
+                const level = section.level || 1;
+                const heading = level === 1 ? HeadingLevel.HEADING_1 :
+                               level === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3;
 
+                const sectionTitle = section.number ? `${section.number} ${section.title}` : section.title;
+                children.push(new Paragraph({ heading, children: [new TextRun(sectionTitle)] }));
+
+                // Content paragraphs
                 if (section.content) {
-                    children.push(
-                        new Paragraph({ spacing: { after: 200 },
-                            children: [new TextRun({ text: String(section.content) })]
-                        })
-                    );
+                    const paragraphs = String(section.content).split('\n\n');
+                    for (const para of paragraphs) {
+                        if (para.trim()) {
+                            children.push(new Paragraph({ spacing: { after: 150 },
+                                children: [new TextRun({ text: para.trim() })]
+                            }));
+                        }
+                    }
                 }
 
-                // Only create table if headers and rows are valid non-empty arrays
-                if (section.tableData
-                    && Array.isArray(section.tableData.headers) && section.tableData.headers.length > 0
-                    && Array.isArray(section.tableData.rows) && section.tableData.rows.length > 0) {
+                // Bullet points
+                if (section.bulletPoints && Array.isArray(section.bulletPoints)) {
+                    for (const bp of section.bulletPoints) {
+                        children.push(new Paragraph({
+                            numbering: { reference: 'bullets', level: 0 },
+                            children: [new TextRun(String(bp || ''))]
+                        }));
+                    }
+                }
 
+                // Table data
+                if (section.tableData && Array.isArray(section.tableData.headers) && section.tableData.headers.length > 0
+                    && Array.isArray(section.tableData.rows) && section.tableData.rows.length > 0) {
                     const numCols = section.tableData.headers.length;
                     const colWidth = Math.floor(9360 / numCols);
                     const colWidths = section.tableData.headers.map(() => colWidth);
-
                     children.push(this._createTable(
                         section.tableData.headers,
                         section.tableData.rows,
@@ -508,8 +293,281 @@ class DocumentGenerator {
                         { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
                     ));
                 }
+            }
+        } else {
+            // ─── FIXED SECTIONS MODE ───
+            // Original hardcoded sections (no reference template)
 
-                customIdx++;
+            // ═══════════════════════════════════════════════════════════
+            // 1. EXECUTIVE SUMMARY
+            // ═══════════════════════════════════════════════════════════
+            children.push(
+                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('1. Executive Summary')] }),
+                new Paragraph({ spacing: { after: 200 },
+                    children: [new TextRun({ text: analysis.executiveSummary || 'No executive summary available.' })]
+                })
+            );
+
+            // ═══════════════════════════════════════════════════════════
+            // 2. BUSINESS OVERVIEW
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.businessOverview) {
+                const bo = analysis.businessOverview;
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('2. Business Overview')] }),
+                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.1 Purpose')] }),
+                    new Paragraph({ children: [new TextRun(bo.purpose || '')] }),
+                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.2 Business Process')] }),
+                    new Paragraph({ children: [new TextRun(bo.businessProcess || '')] }),
+                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.3 SAP Module')] }),
+                    new Paragraph({ children: [new TextRun(bo.module || '')] }),
+                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.4 Business Benefit')] }),
+                    new Paragraph({ children: [new TextRun(bo.businessBenefit || '')] })
+                );
+
+                if (bo.stakeholders?.length > 0) {
+                    children.push(
+                        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('2.5 Stakeholders')] })
+                    );
+                    for (const sh of bo.stakeholders) {
+                        children.push(new Paragraph({
+                            numbering: { reference: 'bullets', level: 0 },
+                            children: [new TextRun(sh)]
+                        }));
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 3. FUNCTIONAL REQUIREMENTS
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.functionalRequirements?.length > 0) {
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('3. Functional Requirements')] })
+                );
+
+                children.push(this._createTable(
+                    ['Req ID', 'Title', 'Description', 'Business Rule', 'Priority'],
+                    analysis.functionalRequirements.map(req => [
+                        req.reqId || '', req.title || '', req.description || '',
+                        req.businessRule || '', req.priority || ''
+                    ]),
+                    [1200, 1800, 2800, 2400, 1160],
+                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                ));
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 4. DATA SPECIFICATION
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.dataSpecification) {
+                const ds = analysis.dataSpecification;
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('4. Data Specification')] })
+                );
+
+                // 4.1 Input Data
+                if (ds.inputData?.length > 0) {
+                    children.push(
+                        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('4.1 Input Data')] })
+                    );
+                    children.push(this._createTable(
+                        ['Field', 'SAP Table', 'Business Meaning', 'Mandatory', 'Validation'],
+                        ds.inputData.map(d => [
+                            d.fieldName || '', d.sapTable || '', d.businessMeaning || '',
+                            d.mandatory ? 'Yes' : 'No', d.validationRules || ''
+                        ]),
+                        [1600, 1600, 2400, 1000, 2760],
+                        { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                    ));
+                }
+
+                // 4.2 Output Data
+                if (ds.outputData?.length > 0) {
+                    children.push(
+                        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('4.2 Output Data')] })
+                    );
+                    children.push(this._createTable(
+                        ['Field', 'Description', 'Format', 'Business Use'],
+                        ds.outputData.map(d => [
+                            d.fieldName || '', d.description || '', d.format || '', d.businessUse || ''
+                        ]),
+                        [2000, 2800, 1560, 3000],
+                        { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                    ));
+                }
+
+                // 4.3 Tables Used
+                if (ds.tablesUsed?.length > 0) {
+                    children.push(
+                        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('4.3 SAP Tables Used')] })
+                    );
+                    children.push(this._createTable(
+                        ['Table', 'Description', 'Usage', 'Business Entity'],
+                        ds.tablesUsed.map(t => [
+                            t.tableName || '', t.tableDescription || '', t.usage || '', t.businessEntity || ''
+                        ]),
+                        [1800, 2800, 1200, 3560],
+                        { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                    ));
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 5. SELECTION SCREEN
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.selectionScreen) {
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('5. Selection Screen / User Interface')] }),
+                    new Paragraph({ children: [new TextRun(analysis.selectionScreen.description || '')] })
+                );
+
+                if (analysis.selectionScreen.parameters?.length > 0) {
+                    children.push(this._createTable(
+                        ['Parameter', 'Type', 'Description', 'Mandatory', 'Default'],
+                        analysis.selectionScreen.parameters.map(p => [
+                            p.paramName || '', p.type || '', p.description || '',
+                            p.mandatory ? 'Yes' : 'No', p.defaultValue || ''
+                        ]),
+                        [1800, 1200, 3160, 1000, 2200],
+                        { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                    ));
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 6. BUSINESS RULES
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.businessRules?.length > 0) {
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('6. Business Rules')] })
+                );
+                children.push(this._createTable(
+                    ['Rule ID', 'Rule Name', 'Description', 'Condition', 'Action'],
+                    analysis.businessRules.map(r => [
+                        r.ruleId || '', r.ruleName || '', r.description || '',
+                        r.condition || '', r.action || ''
+                    ]),
+                    [1000, 1600, 2760, 2000, 2000],
+                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                ));
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 7. INTEGRATION POINTS
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.integrationPoints?.length > 0) {
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('7. Integration Points')] })
+                );
+                children.push(this._createTable(
+                    ['System', 'Type', 'Direction', 'Description', 'Data Exchanged'],
+                    analysis.integrationPoints.map(i => [
+                        i.system || '', i.type || '', i.direction || '',
+                        i.description || '', i.dataExchanged || ''
+                    ]),
+                    [1600, 1200, 1200, 2760, 2600],
+                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                ));
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 8. AUTHORIZATION
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.authorization) {
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('8. Authorization & Security')] }),
+                    new Paragraph({ children: [new TextRun(analysis.authorization.description || '')] })
+                );
+
+                if (analysis.authorization.checks?.length > 0) {
+                    children.push(this._createTable(
+                        ['Auth Object', 'Description', 'Fields Checked'],
+                        analysis.authorization.checks.map(a => [
+                            a.authObject || '', a.description || '', a.fields || ''
+                        ]),
+                        [2400, 3960, 3000],
+                        { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                    ));
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 9. ERROR HANDLING
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.errorHandling?.length > 0) {
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('9. Error Handling')] })
+                );
+                children.push(this._createTable(
+                    ['Error Code', 'Description', 'Business Impact', 'Resolution'],
+                    analysis.errorHandling.map(e => [
+                        e.errorCode || '', e.description || '', e.businessImpact || '', e.resolution || ''
+                    ]),
+                    [1600, 2800, 2560, 2400],
+                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                ));
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 10. TEST SCENARIOS
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.testScenarios?.length > 0) {
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('10. Test Scenarios')] })
+                );
+                children.push(this._createTable(
+                    ['ID', 'Title', 'Precondition', 'Steps', 'Expected Result'],
+                    analysis.testScenarios.map(t => [
+                        t.scenarioId || '', t.title || '', t.precondition || '',
+                        t.steps || '', t.expectedResult || ''
+                    ]),
+                    [800, 1600, 2000, 2560, 2400],
+                    { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                ));
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // CUSTOM SECTIONS (from reference template)
+            // ═══════════════════════════════════════════════════════════
+            if (analysis.customSections && Array.isArray(analysis.customSections) && analysis.customSections.length > 0) {
+                let customIdx = 11;
+                for (const section of analysis.customSections) {
+                    if (!section || !section.title) continue;
+
+                    children.push(
+                        new Paragraph({ heading: HeadingLevel.HEADING_1,
+                            children: [new TextRun(`${customIdx}. ${String(section.title)}`)]
+                        })
+                    );
+
+                    if (section.content) {
+                        children.push(
+                            new Paragraph({ spacing: { after: 200 },
+                                children: [new TextRun({ text: String(section.content) })]
+                            })
+                        );
+                    }
+
+                    // Only create table if headers and rows are valid non-empty arrays
+                    if (section.tableData
+                        && Array.isArray(section.tableData.headers) && section.tableData.headers.length > 0
+                        && Array.isArray(section.tableData.rows) && section.tableData.rows.length > 0) {
+
+                        const numCols = section.tableData.headers.length;
+                        const colWidth = Math.floor(9360 / numCols);
+                        const colWidths = section.tableData.headers.map(() => colWidth);
+
+                        children.push(this._createTable(
+                            section.tableData.headers,
+                            section.tableData.rows,
+                            colWidths,
+                            { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                        ));
+                    }
+
+                    customIdx++;
+                }
             }
         }
 
@@ -589,6 +647,88 @@ class DocumentGenerator {
             }
         }
 
+        // ─── Build Header ───
+        const headerText = analysis.headerText || `${docTypePrefix} - ${sourceResult.objectName}`;
+        let docHeader;
+
+        if (analysis.headerImages && Array.isArray(analysis.headerImages) && analysis.headerImages.length > 0) {
+            // Header with logo images using a 3-column table
+            const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+            const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+            const noMargins = { top: 0, bottom: 0, left: 0, right: 0 };
+
+            // Left cell: first logo or empty
+            const leftCellChildren = [];
+            try {
+                if (analysis.headerImages[0]) {
+                    leftCellChildren.push(new Paragraph({
+                        children: [new ImageRun({
+                            data: Buffer.from(analysis.headerImages[0], 'base64'),
+                            transformation: { width: 120, height: 50 }
+                        })]
+                    }));
+                }
+            } catch (imgErr) {
+                LOG.warn('Failed to load left header image:', imgErr.message);
+            }
+            if (leftCellChildren.length === 0) {
+                leftCellChildren.push(new Paragraph({ children: [] }));
+            }
+
+            // Center cell: header text
+            const centerCellChildren = [new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({
+                    text: headerText,
+                    size: 18, color: '999999', italics: true
+                })]
+            })];
+
+            // Right cell: second logo or empty
+            const rightCellChildren = [];
+            try {
+                if (analysis.headerImages.length > 1 && analysis.headerImages[1]) {
+                    rightCellChildren.push(new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [new ImageRun({
+                            data: Buffer.from(analysis.headerImages[1], 'base64'),
+                            transformation: { width: 120, height: 50 }
+                        })]
+                    }));
+                }
+            } catch (imgErr) {
+                LOG.warn('Failed to load right header image:', imgErr.message);
+            }
+            if (rightCellChildren.length === 0) {
+                rightCellChildren.push(new Paragraph({ children: [] }));
+            }
+
+            const headerTable = new Table({
+                width: { size: 9360, type: WidthType.DXA },
+                columnWidths: [2000, 5360, 2000],
+                rows: [new TableRow({
+                    children: [
+                        new TableCell({ borders: noBorders, margins: noMargins, width: { size: 2000, type: WidthType.DXA }, children: leftCellChildren }),
+                        new TableCell({ borders: noBorders, margins: noMargins, width: { size: 5360, type: WidthType.DXA }, children: centerCellChildren }),
+                        new TableCell({ borders: noBorders, margins: noMargins, width: { size: 2000, type: WidthType.DXA }, children: rightCellChildren })
+                    ]
+                })]
+            });
+
+            docHeader = new Header({ children: [headerTable] });
+        } else {
+            // Simple text header (no images)
+            docHeader = new Header({
+                children: [new Paragraph({
+                    alignment: AlignmentType.RIGHT,
+                    children: [new TextRun({
+                        text: headerText,
+                        size: 18, color: '999999', italics: true
+                    })]
+                })]
+            });
+        }
+
         // ─── Assemble Document ───
         doc.addSection({
             properties: {
@@ -598,15 +738,7 @@ class DocumentGenerator {
                 }
             },
             headers: {
-                default: new Header({
-                    children: [new Paragraph({
-                        alignment: AlignmentType.RIGHT,
-                        children: [new TextRun({
-                            text: `${docTypePrefix} - ${sourceResult.objectName}`,
-                            size: 18, color: '999999', italics: true
-                        })]
-                    })]
-                })
+                default: docHeader
             },
             footers: {
                 default: new Footer({

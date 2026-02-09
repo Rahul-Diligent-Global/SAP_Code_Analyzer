@@ -187,9 +187,12 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
 
             // 4. Resolve reference content (from frontend options or template DB)
             let referenceText = null;
+            let referenceImages = [];
             const rawRef = data.options?.referenceContent || template?.referenceContent;
             if (rawRef) {
-                referenceText = await this._extractReferenceText(rawRef);
+                const refData = await this._extractReferenceData(rawRef);
+                referenceText = refData.text;
+                referenceImages = refData.images || [];
             }
 
             // 5. Send to Claude API for analysis
@@ -209,7 +212,12 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                 referenceContent: referenceText
             });
 
-            // 5. Generate document (PDF or DOCX)
+            // Attach reference images for document generator header (extract base64 strings)
+            if (referenceImages.length > 0) {
+                analysis.headerImages = referenceImages.map(img => img.base64 || img);
+            }
+
+            // 6. Generate document (PDF or DOCX)
             LOG.info(`Generating ${data.options?.documentType || 'DOCX'} document...`);
             const docGenerator = new DocumentGenerator();
             const docType = data.options?.documentType || 'DOCX';
@@ -341,9 +349,12 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
 
             // Resolve reference content (from frontend options or template DB)
             let referenceText = null;
+            let referenceImages = [];
             const rawRef = data.options?.referenceContent || template?.referenceContent;
             if (rawRef) {
-                referenceText = await this._extractReferenceText(rawRef);
+                const refData = await this._extractReferenceData(rawRef);
+                referenceText = refData.text;
+                referenceImages = refData.images || [];
             }
 
             // Send to AI for analysis
@@ -362,6 +373,11 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                 templateSections: template?.sections,
                 referenceContent: referenceText
             });
+
+            // Attach reference images for document generator header (extract base64 strings)
+            if (referenceImages.length > 0) {
+                analysis.headerImages = referenceImages.map(img => img.base64 || img);
+            }
 
             // Generate document (PDF or DOCX)
             const docType = data.options?.documentType || 'DOCX';
@@ -438,33 +454,62 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
     }
 
     /**
-     * Extract text from reference content.
-     * If content is base64-encoded .docx, uses mammoth to extract text.
-     * Otherwise returns as-is (plain text).
+     * Extract text and images from reference content.
+     * If content is base64-encoded .docx, uses mammoth for text and jszip for images.
+     * Returns { text, images } where images is an array of base64 encoded image buffers.
      */
-    async _extractReferenceText(content) {
-        if (!content) return null;
+    async _extractReferenceData(content) {
+        if (!content) return { text: null, images: [] };
 
         // Detect base64-encoded .docx (ZIP files start with "PK" = "UEsDB" in base64)
         if (content.startsWith('UEsDB') || content.startsWith('data:application/')) {
             try {
-                // Strip data URL prefix if present
                 let base64Data = content;
                 if (base64Data.includes(',')) {
                     base64Data = base64Data.split(',')[1];
                 }
 
                 const buffer = Buffer.from(base64Data, 'base64');
-                const result = await mammoth.extractRawText({ buffer });
-                LOG.info(`Extracted ${result.value.length} chars from .docx reference template`);
-                return result.value;
+
+                // Extract text with mammoth
+                const textResult = await mammoth.extractRawText({ buffer });
+                LOG.info(`Extracted ${textResult.value.length} chars from .docx reference template`);
+
+                // Extract images from .docx ZIP
+                const images = [];
+                try {
+                    const JSZip = require('jszip');
+                    const zip = await JSZip.loadAsync(buffer);
+                    const mediaFolder = zip.folder('word/media');
+                    if (mediaFolder) {
+                        const imageFiles = [];
+                        mediaFolder.forEach((relativePath, file) => {
+                            if (/\.(png|jpg|jpeg|gif|bmp|emf|wmf)$/i.test(relativePath)) {
+                                imageFiles.push({ path: relativePath, file });
+                            }
+                        });
+                        // Sort by name to get consistent order
+                        imageFiles.sort((a, b) => a.path.localeCompare(b.path));
+                        // Extract first 2 images (left/right logos for header)
+                        for (let i = 0; i < Math.min(2, imageFiles.length); i++) {
+                            const imgBuffer = await imageFiles[i].file.async('base64');
+                            const ext = imageFiles[i].path.split('.').pop().toLowerCase();
+                            images.push({ base64: imgBuffer, extension: ext });
+                        }
+                        LOG.info(`Extracted ${images.length} images from .docx reference template`);
+                    }
+                } catch (imgErr) {
+                    LOG.warn('Failed to extract images from .docx:', imgErr.message);
+                }
+
+                return { text: textResult.value, images };
             } catch (error) {
-                LOG.warn('Failed to extract text from .docx reference:', error.message);
-                return content; // Fall back to raw content
+                LOG.warn('Failed to extract data from .docx reference:', error.message);
+                return { text: content, images: [] };
             }
         }
 
-        return content;
+        return { text: content, images: [] };
     }
 
     /**
