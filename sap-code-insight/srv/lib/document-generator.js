@@ -140,14 +140,16 @@ class DocumentGenerator {
         );
 
         // Document Metadata Table (from reference template - client info, project name, etc.)
-        if (analysis.documentMetadata && analysis.documentMetadata.length > 0) {
+        if (analysis.documentMetadata && Array.isArray(analysis.documentMetadata) && analysis.documentMetadata.length > 0) {
             children.push(new Paragraph({ spacing: { before: 600 } }));
 
             const metaBorder = { style: BorderStyle.SINGLE, size: 1, color: '999999' };
             const metaBorders = { top: metaBorder, bottom: metaBorder, left: metaBorder, right: metaBorder };
             const metaLabelShading = { fill: 'F2F2F2', type: ShadingType.CLEAR };
 
-            const metaRows = analysis.documentMetadata.map(item => new TableRow({
+            const metaRows = analysis.documentMetadata
+                .filter(item => item && (item.label || item.value))
+                .map(item => new TableRow({
                 children: [
                     new TableCell({
                         borders: metaBorders,
@@ -177,7 +179,7 @@ class DocumentGenerator {
         }
 
         // Version History Table (from reference template)
-        if (analysis.versionHistory && analysis.versionHistory.length > 0) {
+        if (analysis.versionHistory && Array.isArray(analysis.versionHistory) && analysis.versionHistory.length > 0) {
             children.push(
                 new Paragraph({ spacing: { before: 400 } }),
                 new Paragraph({ spacing: { after: 100 },
@@ -471,26 +473,30 @@ class DocumentGenerator {
         // ═══════════════════════════════════════════════════════════
         // CUSTOM SECTIONS (from reference template)
         // ═══════════════════════════════════════════════════════════
-        if (analysis.customSections && analysis.customSections.length > 0) {
+        if (analysis.customSections && Array.isArray(analysis.customSections) && analysis.customSections.length > 0) {
             let customIdx = 11;
             for (const section of analysis.customSections) {
-                if (!section.title) continue;
+                if (!section || !section.title) continue;
 
                 children.push(
                     new Paragraph({ heading: HeadingLevel.HEADING_1,
-                        children: [new TextRun(`${customIdx}. ${section.title}`)]
+                        children: [new TextRun(`${customIdx}. ${String(section.title)}`)]
                     })
                 );
 
                 if (section.content) {
                     children.push(
                         new Paragraph({ spacing: { after: 200 },
-                            children: [new TextRun({ text: section.content })]
+                            children: [new TextRun({ text: String(section.content) })]
                         })
                     );
                 }
 
-                if (section.tableData && section.tableData.headers && section.tableData.rows) {
+                // Only create table if headers and rows are valid non-empty arrays
+                if (section.tableData
+                    && Array.isArray(section.tableData.headers) && section.tableData.headers.length > 0
+                    && Array.isArray(section.tableData.rows) && section.tableData.rows.length > 0) {
+
                     const numCols = section.tableData.headers.length;
                     const colWidth = Math.floor(9360 / numCols);
                     const colWidths = section.tableData.headers.map(() => colWidth);
@@ -788,38 +794,54 @@ class DocumentGenerator {
 
     /**
      * Helper: Create a formatted table for DOCX
+     * Robust against mismatched row/header lengths from AI response
      */
     _createTable(headers, rows, colWidths, ctx) {
         const { borders, cellMargins, headerShading, altRowShading,
                 TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType } = ctx;
 
+        // Ensure headers is a valid array
+        if (!Array.isArray(headers) || headers.length === 0) {
+            return new Paragraph({ children: [new TextRun('[Empty table]')] });
+        }
+
+        const numCols = headers.length;
         const tableWidth = colWidths.reduce((sum, w) => sum + w, 0);
 
         // Header row
         const headerRow = new TableRow({
             children: headers.map((h, i) => new TableCell({
                 borders,
-                width: { size: colWidths[i], type: WidthType.DXA },
+                width: { size: colWidths[i] || Math.floor(9360 / numCols), type: WidthType.DXA },
                 shading: headerShading,
                 margins: cellMargins,
                 children: [new Paragraph({
-                    children: [new TextRun({ text: h, bold: true, color: 'FFFFFF', size: 20, font: 'Calibri' })]
+                    children: [new TextRun({ text: String(h || ''), bold: true, color: 'FFFFFF', size: 20, font: 'Calibri' })]
                 })]
             }))
         });
 
-        // Data rows
-        const dataRows = rows.map((row, rowIdx) => new TableRow({
-            children: row.map((cell, i) => new TableCell({
-                borders,
-                width: { size: colWidths[i], type: WidthType.DXA },
-                shading: rowIdx % 2 === 1 ? altRowShading : undefined,
-                margins: cellMargins,
-                children: [new Paragraph({
-                    children: [new TextRun({ text: String(cell || ''), size: 18, font: 'Calibri' })]
-                })]
-            }))
-        }));
+        // Data rows - normalize each row to have exactly numCols cells
+        const safeRows = (Array.isArray(rows) ? rows : []).filter(row => Array.isArray(row));
+        const dataRows = safeRows.map((row, rowIdx) => {
+            // Pad or truncate row to match header column count
+            const normalizedRow = [];
+            for (let i = 0; i < numCols; i++) {
+                normalizedRow.push(String(row[i] != null ? row[i] : ''));
+            }
+
+            return new TableRow({
+                children: normalizedRow.map((cell, i) => new TableCell({
+                    borders,
+                    width: { size: colWidths[i] || Math.floor(9360 / numCols), type: WidthType.DXA },
+                    shading: rowIdx % 2 === 1 ? altRowShading : undefined,
+                    margins: cellMargins,
+                    children: [new Paragraph({
+                        children: [new TextRun({ text: cell, size: 18, font: 'Calibri' })]
+                    })]
+                }))
+            });
+        });
 
         return new Table({
             width: { size: tableWidth, type: WidthType.DXA },
