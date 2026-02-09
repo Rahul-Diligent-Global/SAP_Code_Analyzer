@@ -87,6 +87,11 @@
                     "name": "ObjectDetail",
                     "pattern": "object/{objectName}/{category}",
                     "target": "ObjectDetail"
+                },
+                {
+                    "name": "OfflineAnalysis",
+                    "pattern": "offline",
+                    "target": "OfflineAnalysis"
                 }
             ],
             "targets": {
@@ -96,6 +101,10 @@
                 },
                 "ObjectDetail": {
                     "viewName": "ObjectDetail",
+                    "viewLevel": 2
+                },
+                "OfflineAnalysis": {
+                    "viewName": "OfflineAnalysis",
                     "viewLevel": 2
                 }
             }

@@ -80,6 +80,18 @@ sap.ui.define([
         // OBJECT LIST HANDLERS
         // ═══════════════════════════════════════════════════════════
 
+        // ═══════════════════════════════════════════════════════════
+        // OFFLINE ANALYSIS (Upload Code)
+        // ═══════════════════════════════════════════════════════════
+
+        onUploadCode: function () {
+            this.getOwnerComponent().getRouter().navTo("OfflineAnalysis");
+        },
+
+        // ═══════════════════════════════════════════════════════════
+        // OBJECT LIST HANDLERS
+        // ═══════════════════════════════════════════════════════════
+
         onObjectPress: function (oEvent) {
             var oItem = oEvent.getSource();
             var oContext = oItem.getBindingContext();

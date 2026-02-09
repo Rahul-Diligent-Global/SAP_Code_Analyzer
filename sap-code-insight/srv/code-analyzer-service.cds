@@ -118,6 +118,16 @@ service CodeAnalyzerService @(path: '/api/analyzer') {
     ) returns String; // JSON string with analysis
 
     /**
+     * Analyze uploaded ABAP code offline (no SAP connection needed)
+     * User pastes/uploads code directly
+     */
+    action analyzeOfflineCode(
+        objectName   : String(120),
+        sourceCode   : LargeString,
+        analysisType : String(30)
+    ) returns String; // JSON string with analysis
+
+    /**
      * Get current user info including roles
      * Used by UI to show/hide admin features
      */

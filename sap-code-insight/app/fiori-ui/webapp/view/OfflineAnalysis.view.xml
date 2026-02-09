@@ -1,0 +1,148 @@
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:layout="sap.ui.layout"
+    xmlns:ce="sap.ui.codeeditor"
+    xmlns:unified="sap.ui.unified"
+    controllerName="com.sap.codeinsight.controller.OfflineAnalysis">
+
+    <Page id="offlineAnalysisPage"
+          title="Offline Code Analysis"
+          showNavButton="true"
+          navButtonPress=".onNavBack"
+          busy="{offlineModel>/busy}"
+          class="sapUiResponsiveContentPadding">
+
+        <customHeader>
+            <Bar>
+                <contentLeft>
+                    <Button icon="sap-icon://nav-back" press=".onNavBack"/>
+                    <Title text="Offline Code Analysis" level="H3"/>
+                </contentLeft>
+                <contentRight>
+                    <Button
+                        id="analyzeBtn"
+                        text="Analyze Code"
+                        icon="sap-icon://inspection"
+                        type="Emphasized"
+                        press=".onAnalyzeCode"
+                        visible="{= !!${offlineModel>/sourceCode} &amp;&amp; ${offlineModel>/sourceCode}.length > 0}"/>
+                </contentRight>
+            </Bar>
+        </customHeader>
+
+        <content>
+            <VBox class="sapUiSmallMargin">
+
+                <!-- Upload Section -->
+                <Panel headerText="Upload ABAP Source Code" expandable="true" expanded="{= !${offlineModel>/codeLoaded}}" class="sapUiSmallMarginBottom">
+                    <content>
+                        <VBox class="sapUiSmallMargin">
+                            <MessageStrip
+                                text="Upload a .txt or .abap file containing ABAP source code, or paste code directly below. No SAP connection required."
+                                type="Information"
+                                showIcon="true"
+                                class="sapUiSmallMarginBottom"/>
+
+                            <layout:Grid defaultSpan="L6 M12 S12" class="sapUiSmallMarginBottom">
+                                <layout:VerticalLayout>
+                                    <Label text="Object Name" design="Bold" required="true"/>
+                                    <Input id="objectNameInput"
+                                           value="{offlineModel>/objectName}"
+                                           placeholder="e.g. ZMY_REPORT or ZCL_MY_CLASS"
+                                           width="100%"/>
+                                </layout:VerticalLayout>
+                                <layout:VerticalLayout>
+                                    <Label text="Upload File" design="Bold"/>
+                                    <unified:FileUploader
+                                        id="fileUploader"
+                                        name="codeFile"
+                                        uploadOnChange="false"
+                                        change=".onFileSelected"
+                                        fileType="txt,abap,txt"
+                                        placeholder="Choose .txt or .abap file..."
+                                        width="100%"
+                                        buttonText="Browse"
+                                        style="Emphasized"/>
+                                </layout:VerticalLayout>
+                            </layout:Grid>
+
+                            <Label text="Or paste ABAP code directly:" design="Bold" class="sapUiSmallMarginTop"/>
+                            <ce:CodeEditor
+                                id="codeInput"
+                                value="{offlineModel>/sourceCode}"
+                                type="abap"
+                                height="300px"
+                                editable="true"
+                                syntaxHints="true"
+                                lineNumbers="true"
+                                class="sapUiSmallMarginTop"/>
+
+                            <HBox justifyContent="End" class="sapUiSmallMarginTop">
+                                <Button
+                                    text="Clear"
+                                    icon="sap-icon://delete"
+                                    type="Transparent"
+                                    press=".onClearCode"
+                                    class="sapUiSmallMarginEnd"/>
+                                <Button
+                                    text="Load Code"
+                                    icon="sap-icon://accept"
+                                    type="Emphasized"
+                                    press=".onLoadCode"/>
+                            </HBox>
+                        </VBox>
+                    </content>
+                </Panel>
+
+                <!-- Code Display (after loading) -->
+                <Panel headerText="Source Code Preview"
+                       expandable="true"
+                       expanded="true"
+                       visible="{offlineModel>/codeLoaded}"
+                       class="sapUiSmallMarginBottom">
+                    <headerToolbar>
+                        <Toolbar>
+                            <Title text="{offlineModel>/objectName}" level="H5"/>
+                            <ToolbarSpacer/>
+                            <ObjectNumber number="{offlineModel>/lineCount}" unit="lines"/>
+                            <Button icon="sap-icon://copy" tooltip="Copy Code" press=".onCopyCode" class="sapUiSmallMarginBegin"/>
+                        </Toolbar>
+                    </headerToolbar>
+                    <content>
+                        <ce:CodeEditor
+                            id="codePreview"
+                            value="{offlineModel>/sourceCode}"
+                            type="abap"
+                            height="400px"
+                            editable="false"
+                            syntaxHints="true"
+                            lineNumbers="true"/>
+                    </content>
+                </Panel>
+
+                <!-- Analysis Result -->
+                <Panel id="offlineAnalysisPanel"
+                       headerText="AI Analysis Result"
+                       expandable="true"
+                       expanded="true"
+                       visible="{= !!${offlineModel>/analysis}}"
+                       class="sapUiSmallMarginTop">
+                    <content>
+                        <MessageStrip
+                            text="Analysis generated by Claude AI based on uploaded code."
+                            type="Information"
+                            showIcon="true"
+                            class="sapUiSmallMarginBottom"/>
+                        <FormattedText
+                            htmlText="{offlineModel>/analysisHtml}"
+                            class="sapUiSmallMargin"/>
+                    </content>
+                </Panel>
+
+            </VBox>
+        </content>
+
+    </Page>
+</mvc:View>

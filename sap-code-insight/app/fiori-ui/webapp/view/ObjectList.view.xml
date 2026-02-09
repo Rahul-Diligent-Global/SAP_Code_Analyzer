@@ -35,6 +35,12 @@
                                 visible="{viewModel>/isAdmin}"
                                 class="codeInsightHeaderBtn"/>
                             <Button
+                                text="Offline Analysis"
+                                icon="sap-icon://upload"
+                                type="Transparent"
+                                press=".onUploadCode"
+                                class="codeInsightHeaderBtn sapUiSmallMarginBegin"/>
+                            <Button
                                 text="Refresh from SAP"
                                 icon="sap-icon://synchronize"
                                 type="Emphasized"

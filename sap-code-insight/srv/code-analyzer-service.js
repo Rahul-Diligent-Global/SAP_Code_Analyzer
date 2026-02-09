@@ -47,6 +47,14 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
             );
         });
 
+        this.on('analyzeOfflineCode', async (req) => {
+            return this._analyzeOfflineCode(
+                req.data.objectName,
+                req.data.sourceCode,
+                req.data.analysisType
+            );
+        });
+
         this.on('getUserInfo', async (req) => {
             const user = req.user;
             return {
@@ -272,6 +280,30 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
         } catch (error) {
             LOG.error(`Code analysis failed for ${objectName}:`, error.message);
             throw new Error(`Code analysis failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Analyze uploaded code offline (no SAP connection needed)
+     */
+    async _analyzeOfflineCode(objectName, sourceCode, analysisType) {
+        try {
+            LOG.info(`Offline analysis for: ${objectName} (${sourceCode.length} chars)`);
+
+            const claudeAnalyzer = new ClaudeAnalyzer();
+            const analysis = await claudeAnalyzer.analyzeCode({
+                objectName: objectName || 'UPLOADED_CODE',
+                objectType: 'PROG',
+                title: objectName || 'Uploaded ABAP Code',
+                sourceCode: sourceCode,
+                analysisType: analysisType || 'BRD'
+            });
+
+            return JSON.stringify(analysis);
+
+        } catch (error) {
+            LOG.error(`Offline code analysis failed: ${error.message}`);
+            throw new Error(`Offline analysis failed: ${error.message}`);
         }
     }
 
