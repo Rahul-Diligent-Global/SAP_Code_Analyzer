@@ -484,7 +484,8 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
                     if (mediaFolder) {
                         const imageFiles = [];
                         mediaFolder.forEach((relativePath, file) => {
-                            if (/\.(png|jpg|jpeg|gif|bmp|emf|wmf)$/i.test(relativePath)) {
+                            // Only extract PNG/JPEG/GIF/BMP - docx npm ImageRun does NOT support EMF/WMF
+                            if (/\.(png|jpg|jpeg|gif|bmp)$/i.test(relativePath)) {
                                 imageFiles.push({ path: relativePath, file });
                             }
                         });

@@ -960,14 +960,49 @@ sap.ui.define([
                 ));
             }
 
-            // Executive Summary
-            if (oAnalysis.executiveSummary) {
+            // Dynamic sections (reference template mode)
+            if (oAnalysis.sections && oAnalysis.sections.length > 0) {
+                oAnalysis.sections.forEach(function (section) {
+                    if (!section || !section.title) return;
+                    var sTitle = section.number ? section.number + " " + section.title : section.title;
+                    var nLevel = section.level || 1;
+                    if (nLevel === 1) {
+                        aHtml.push(this._sectionHeader(sTitle));
+                    } else if (nLevel === 2) {
+                        aHtml.push("<h4 style='color:#2E75B6;margin:12px 0 6px;'>" + this._escapeHtml(sTitle) + "</h4>");
+                    } else {
+                        aHtml.push("<h5 style='color:#404040;margin:8px 0 4px;'>" + this._escapeHtml(sTitle) + "</h5>");
+                    }
+                    if (section.content) {
+                        var paragraphs = String(section.content).split("\n\n");
+                        paragraphs.forEach(function (p) {
+                            if (p.trim()) aHtml.push("<p style='line-height:1.6;'>" + this._escapeHtml(p.trim()) + "</p>");
+                        }.bind(this));
+                    }
+                    if (section.bulletPoints && section.bulletPoints.length > 0) {
+                        aHtml.push("<ul>");
+                        section.bulletPoints.forEach(function (bp) {
+                            aHtml.push("<li>" + this._escapeHtml(String(bp || "")) + "</li>");
+                        }.bind(this));
+                        aHtml.push("</ul>");
+                    }
+                    if (section.tableData && section.tableData.headers && section.tableData.rows) {
+                        var widths = section.tableData.headers.map(function () {
+                            return Math.floor(100 / section.tableData.headers.length) + "%";
+                        });
+                        aHtml.push(this._htmlTable(section.tableData.headers, section.tableData.rows, widths));
+                    }
+                }.bind(this));
+            }
+
+            // Executive Summary (fixed mode - only shown when no dynamic sections)
+            if (!oAnalysis.sections && oAnalysis.executiveSummary) {
                 aHtml.push(this._sectionHeader("Executive Summary"));
                 aHtml.push("<p style='line-height:1.6;'>" + this._escapeHtml(oAnalysis.executiveSummary) + "</p>");
             }
 
-            // Business Overview
-            if (oAnalysis.businessOverview) {
+            // Business Overview (fixed mode)
+            if (!oAnalysis.sections && oAnalysis.businessOverview) {
                 var bo = oAnalysis.businessOverview;
                 aHtml.push(this._sectionHeader("Business Overview"));
                 if (bo.purpose) aHtml.push("<p><strong style='color:#2E75B6;'>Purpose:</strong> " + this._escapeHtml(bo.purpose) + "</p>");
@@ -979,8 +1014,8 @@ sap.ui.define([
                 }
             }
 
-            // Functional Requirements
-            if (oAnalysis.functionalRequirements && oAnalysis.functionalRequirements.length > 0) {
+            // Functional Requirements (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.functionalRequirements && oAnalysis.functionalRequirements.length > 0) {
                 aHtml.push(this._sectionHeader("Functional Requirements"));
                 aHtml.push(this._htmlTable(
                     ["ID", "Title", "Description", "Business Rule", "Priority"],
@@ -989,8 +1024,8 @@ sap.ui.define([
                 ));
             }
 
-            // Data Specification
-            if (oAnalysis.dataSpecification) {
+            // Data Specification (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.dataSpecification) {
                 var ds = oAnalysis.dataSpecification;
                 aHtml.push(this._sectionHeader("Data Specification"));
 
@@ -1020,8 +1055,8 @@ sap.ui.define([
                 }
             }
 
-            // Selection Screen
-            if (oAnalysis.selectionScreen) {
+            // Selection Screen (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.selectionScreen) {
                 aHtml.push(this._sectionHeader("Selection Screen"));
                 if (oAnalysis.selectionScreen.description) aHtml.push("<p>" + this._escapeHtml(oAnalysis.selectionScreen.description) + "</p>");
                 if (oAnalysis.selectionScreen.parameters && oAnalysis.selectionScreen.parameters.length > 0) {
@@ -1033,8 +1068,8 @@ sap.ui.define([
                 }
             }
 
-            // Business Rules
-            if (oAnalysis.businessRules && oAnalysis.businessRules.length > 0) {
+            // Business Rules (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.businessRules && oAnalysis.businessRules.length > 0) {
                 aHtml.push(this._sectionHeader("Business Rules"));
                 aHtml.push(this._htmlTable(
                     ["Rule ID", "Rule Name", "Description", "Condition", "Action"],
@@ -1043,8 +1078,8 @@ sap.ui.define([
                 ));
             }
 
-            // Integration Points
-            if (oAnalysis.integrationPoints && oAnalysis.integrationPoints.length > 0) {
+            // Integration Points (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.integrationPoints && oAnalysis.integrationPoints.length > 0) {
                 aHtml.push(this._sectionHeader("Integration Points"));
                 aHtml.push(this._htmlTable(
                     ["System", "Type", "Direction", "Description", "Data Exchanged"],
@@ -1053,8 +1088,8 @@ sap.ui.define([
                 ));
             }
 
-            // Authorization
-            if (oAnalysis.authorization) {
+            // Authorization (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.authorization) {
                 aHtml.push(this._sectionHeader("Authorization & Security"));
                 if (oAnalysis.authorization.description) aHtml.push("<p>" + this._escapeHtml(oAnalysis.authorization.description) + "</p>");
                 if (oAnalysis.authorization.checks && oAnalysis.authorization.checks.length > 0) {
@@ -1066,8 +1101,8 @@ sap.ui.define([
                 }
             }
 
-            // Error Handling
-            if (oAnalysis.errorHandling && oAnalysis.errorHandling.length > 0) {
+            // Error Handling (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.errorHandling && oAnalysis.errorHandling.length > 0) {
                 aHtml.push(this._sectionHeader("Error Handling"));
                 aHtml.push(this._htmlTable(
                     ["Error Code", "Description", "Business Impact", "Resolution"],
@@ -1076,8 +1111,8 @@ sap.ui.define([
                 ));
             }
 
-            // Test Scenarios
-            if (oAnalysis.testScenarios && oAnalysis.testScenarios.length > 0) {
+            // Test Scenarios (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.testScenarios && oAnalysis.testScenarios.length > 0) {
                 aHtml.push(this._sectionHeader("Test Scenarios"));
                 aHtml.push(this._htmlTable(
                     ["ID", "Title", "Precondition", "Steps", "Expected Result"],
@@ -1086,8 +1121,8 @@ sap.ui.define([
                 ));
             }
 
-            // Appendix
-            if (oAnalysis.appendix) {
+            // Appendix (fixed mode only)
+            if (!oAnalysis.sections && oAnalysis.appendix) {
                 aHtml.push(this._sectionHeader("Appendix"));
                 if (oAnalysis.appendix.technicalNotes) {
                     aHtml.push("<h4 style='color:#404040;margin:8px 0 4px;'>Technical Notes</h4>");
@@ -1105,8 +1140,8 @@ sap.ui.define([
                 }
             }
 
-            // Custom Sections (from reference template)
-            if (oAnalysis.customSections && oAnalysis.customSections.length > 0) {
+            // Custom Sections (fixed mode only, from reference template fallback)
+            if (!oAnalysis.sections && oAnalysis.customSections && oAnalysis.customSections.length > 0) {
                 oAnalysis.customSections.forEach(function (section) {
                     if (!section.title) return;
                     aHtml.push(this._sectionHeader(section.title));

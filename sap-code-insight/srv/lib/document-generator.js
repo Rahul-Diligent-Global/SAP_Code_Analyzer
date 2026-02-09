@@ -738,7 +738,8 @@ class DocumentGenerator {
                 }
             },
             headers: {
-                default: docHeader
+                default: docHeader,
+                first: docHeader
             },
             footers: {
                 default: new Footer({
