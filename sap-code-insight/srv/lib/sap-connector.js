@@ -89,7 +89,9 @@ class SAPConnector {
         return await this._callRFC(destName, 'Z_MCP_GET_CUSTOM_OBJECTS', {
             IV_OBJECT_TYPE: ivObjectType,
             IV_NAMESPACE: ivNamespace,
-            IV_MAX_ROWS: ivMaxRows
+            IV_MAX_ROWS: ivMaxRows,
+            EV_TOTAL_COUNT: '',
+            ET_OBJECTS: ''
         }, this._mapObjectsResult);
     }
 
@@ -107,7 +109,14 @@ class SAPConnector {
 
         return await this._callRFC(destName, 'Z_MCP_GET_SOURCE_CODE', {
             IV_OBJECT_NAME: objectName,
-            IV_CATEGORY: category
+            IV_CATEGORY: category,
+            EV_TITLE: '',
+            EV_OBJECT_TYPE: '',
+            EV_PACKAGE: '',
+            EV_AUTHOR: '',
+            EV_CREATED_ON: '',
+            ET_SOURCE_CODE: '',
+            ET_INCLUDES: ''
         }, this._mapSourceCodeResult);
     }
 
@@ -208,8 +217,8 @@ class SAPConnector {
 
         // Step 2: Build headers with CSRF token + session cookies
         const headers = {
-            'Content-Type': 'text/xml; charset=utf-8',
-            'SOAPAction': ''
+            'Content-Type': 'text/xml',
+            'SOAPAction': `urn:sap-com:document:sap:rfc:functions:${functionName}`
         };
         if (csrf.token) {
             headers['X-CSRF-Token'] = csrf.token;
