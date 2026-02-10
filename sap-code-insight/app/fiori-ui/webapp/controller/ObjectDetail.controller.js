@@ -935,7 +935,7 @@ sap.ui.define([
                 }
             }
 
-            // Try to save to backend
+            // Save to backend via OData
             var oModel = this.getOwnerComponent().getModel();
             try {
                 var oListBinding = oModel.bindList("/DocumentTemplates");
@@ -951,19 +951,20 @@ sap.ui.define([
                 });
 
                 oContext.created().then(function () {
-                    MessageToast.show("Template created successfully!");
+                    // Refresh from backend to get server-generated IDs
+                    that._loadTemplates();
+                    MessageToast.show("Template created and saved!");
                 }).catch(function () {
-                    // OData create failed, still add to local model
+                    MessageToast.show("Template created locally (backend save failed).");
                 });
             } catch (e) { /* fallback to local */ }
 
-            // Update local model
+            // Update local model immediately for UI responsiveness
             var aTemplates = this._oTemplateModel.getProperty("/templates");
             aTemplates.push(oNewTemplate);
             this._oTemplateModel.setProperty("/templates", aTemplates);
 
             oDialog.close();
-            MessageToast.show("Template '" + sName + "' created!");
         },
 
         _showEditTemplateDialog: function (oTemplate, sPath) {
@@ -1066,9 +1067,34 @@ sap.ui.define([
                             catch (e) { MessageBox.error("Custom Sections JSON is invalid."); return; }
                         }
 
+                        // Persist to backend via PATCH
+                        if (oUpdated.ID && !oUpdated.ID.startsWith("tpl-")) {
+                            jQuery.ajax({
+                                url: "/api/analyzer/DocumentTemplates(" + oUpdated.ID + ")",
+                                method: "PATCH",
+                                contentType: "application/json",
+                                data: JSON.stringify({
+                                    templateName: oUpdated.templateName,
+                                    templateType: oUpdated.templateType,
+                                    description: oUpdated.description,
+                                    promptTemplate: oUpdated.promptTemplate,
+                                    sections: oUpdated.sections,
+                                    referenceContent: oUpdated.referenceContent,
+                                    referenceFileName: oUpdated.referenceFileName,
+                                    isActive: oUpdated.isActive
+                                }),
+                                success: function () {
+                                    that._loadTemplates();
+                                    MessageToast.show("Template updated and saved!");
+                                },
+                                error: function () {
+                                    MessageToast.show("Template updated locally (backend save failed).");
+                                }
+                            });
+                        }
+
                         that._oTemplateModel.setProperty(sPath, oUpdated);
                         oDialog.close();
-                        MessageToast.show("Template updated!");
                     }
                 }),
                 endButton: new Button({ text: "Cancel", press: function () { oDialog.close(); } }),
@@ -1084,6 +1110,21 @@ sap.ui.define([
                 title: "Confirm Delete",
                 onClose: function (oAction) {
                     if (oAction === MessageBox.Action.OK) {
+                        // Delete from backend via HTTP DELETE
+                        if (oTemplate.ID && !oTemplate.ID.startsWith("tpl-")) {
+                            jQuery.ajax({
+                                url: "/api/analyzer/DocumentTemplates(" + oTemplate.ID + ")",
+                                method: "DELETE",
+                                success: function () {
+                                    that._loadTemplates();
+                                },
+                                error: function () {
+                                    MessageToast.show("Backend delete failed, removed locally.");
+                                }
+                            });
+                        }
+
+                        // Remove from local model immediately
                         var aTemplates = that._oTemplateModel.getProperty("/templates");
                         var iIndex = parseInt(sPath.split("/").pop());
                         aTemplates.splice(iIndex, 1);

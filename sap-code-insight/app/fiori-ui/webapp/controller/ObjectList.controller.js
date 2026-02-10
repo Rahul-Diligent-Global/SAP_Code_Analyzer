@@ -406,8 +406,29 @@ sap.ui.define([
         },
 
         _loadTenants: function () {
-            // Load tenants from TenantConfig (via admin service or direct OData)
-            // For local dev / mock mode, load sample data
+            var that = this;
+            var oModel = this.getOwnerComponent().getModel();
+
+            try {
+                var oListBinding = oModel.bindList("/TenantConfig");
+                oListBinding.requestContexts(0, 100).then(function (aContexts) {
+                    var aTenants = aContexts.map(function (oCtx) {
+                        return oCtx.getObject();
+                    });
+                    if (aTenants.length > 0) {
+                        that._oTenantModel.setProperty("/tenants", aTenants);
+                    } else {
+                        that._loadMockTenants();
+                    }
+                }).catch(function () {
+                    that._loadMockTenants();
+                });
+            } catch (e) {
+                that._loadMockTenants();
+            }
+        },
+
+        _loadMockTenants: function () {
             var aTenants = this._oTenantModel.getProperty("/tenants");
             if (aTenants.length === 0) {
                 this._oTenantModel.setProperty("/tenants", [
@@ -504,35 +525,66 @@ sap.ui.define([
         },
 
         _addTenant: function (oDialog) {
+            var that = this;
             var sName = sap.ui.getCore().byId("newTenantName").getValue();
             if (!sName) {
                 MessageBox.warning("Please enter a company name.");
                 return;
             }
 
+            var sPlan = sap.ui.getCore().byId("newTenantPlan").getSelectedKey();
             var oNewTenant = {
                 tenantId: "t-" + Date.now().toString(36),
                 tenantName: sName,
                 tenantDomain: sap.ui.getCore().byId("newTenantDomain").getValue(),
-                plan: sap.ui.getCore().byId("newTenantPlan").getSelectedKey(),
+                plan: sPlan,
                 status: "ACTIVE",
                 destinationName: sap.ui.getCore().byId("newDestName").getValue() ||
                     ("SAP_ONPREM_" + sName.substring(0, 8).toUpperCase().replace(/\s/g, "")),
                 sapSystemId: sap.ui.getCore().byId("newSapHost").getValue(),
                 sapClientNumber: sap.ui.getCore().byId("newSapClient").getValue(),
-                maxAPICallsPerMonth: sap.ui.getCore().byId("newTenantPlan").getSelectedKey() === "ENTERPRISE" ? 99999 :
-                    sap.ui.getCore().byId("newTenantPlan").getSelectedKey() === "PROFESSIONAL" ? 500 : 100,
+                maxAPICallsPerMonth: sPlan === "ENTERPRISE" ? 99999 : sPlan === "PROFESSIONAL" ? 500 : 100,
                 currentAPICallCount: 0,
                 anonymizationLevel: sap.ui.getCore().byId("newAnonLevel").getSelectedKey(),
                 onboardedAt: new Date().toISOString()
             };
 
+            // Persist to backend via OData
+            var oModel = this.getOwnerComponent().getModel();
+            try {
+                var oListBinding = oModel.bindList("/TenantConfig");
+                var oContext = oListBinding.create({
+                    tenantId: oNewTenant.tenantId,
+                    tenantName: oNewTenant.tenantName,
+                    tenantDomain: oNewTenant.tenantDomain,
+                    plan: oNewTenant.plan,
+                    status: oNewTenant.status,
+                    destinationName: oNewTenant.destinationName,
+                    sapSystemId: oNewTenant.sapSystemId,
+                    sapClientNumber: oNewTenant.sapClientNumber,
+                    maxAPICallsPerMonth: oNewTenant.maxAPICallsPerMonth,
+                    currentAPICallCount: 0,
+                    anonymizationLevel: oNewTenant.anonymizationLevel,
+                    onboardedAt: oNewTenant.onboardedAt
+                });
+
+                oContext.created().then(function () {
+                    // Refresh from backend to get server-generated ID
+                    that._loadTenants();
+                    MessageToast.show("Tenant '" + sName + "' onboarded successfully!");
+                }).catch(function (oErr) {
+                    MessageBox.error("Failed to save tenant to database: " + (oErr.message || "Unknown error"));
+                });
+            } catch (e) {
+                MessageBox.error("Failed to create tenant: " + e.message);
+            }
+
+            // Also update local model immediately for UI responsiveness
             var aTenants = this._oTenantModel.getProperty("/tenants");
             aTenants.push(oNewTenant);
             this._oTenantModel.setProperty("/tenants", aTenants);
 
             oDialog.close();
-            MessageToast.show("Tenant '" + sName + "' onboarded successfully!");
         },
 
         _showEditTenantDialog: function (oTenant) {
@@ -586,7 +638,38 @@ sap.ui.define([
                     text: "Save",
                     type: "Emphasized",
                     press: function () {
-                        MessageToast.show("Tenant updated successfully!");
+                        var oUpdated = {
+                            status: sap.ui.getCore().byId("editStatus").getSelectedKey(),
+                            plan: sap.ui.getCore().byId("editPlan").getSelectedKey(),
+                            destinationName: sap.ui.getCore().byId("editDest").getValue(),
+                            anonymizationLevel: sap.ui.getCore().byId("editAnon").getSelectedKey(),
+                            maxAPICallsPerMonth: sap.ui.getCore().byId("editPlan").getSelectedKey() === "ENTERPRISE" ? 99999 :
+                                sap.ui.getCore().byId("editPlan").getSelectedKey() === "PROFESSIONAL" ? 500 : 100
+                        };
+
+                        // Persist to backend via PATCH
+                        if (oTenant.ID) {
+                            jQuery.ajax({
+                                url: "/api/analyzer/TenantConfig(" + oTenant.ID + ")",
+                                method: "PATCH",
+                                contentType: "application/json",
+                                data: JSON.stringify(oUpdated),
+                                success: function () {
+                                    that._loadTenants();
+                                    MessageToast.show("Tenant updated successfully!");
+                                },
+                                error: function () {
+                                    MessageToast.show("Tenant updated locally (backend save failed).");
+                                }
+                            });
+                        }
+
+                        // Update local model immediately
+                        Object.keys(oUpdated).forEach(function (key) {
+                            oTenant[key] = oUpdated[key];
+                        });
+                        that._oTenantModel.refresh(true);
+
                         oDialog.close();
                     }
                 }),

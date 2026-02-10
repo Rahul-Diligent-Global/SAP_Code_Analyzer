@@ -24,6 +24,10 @@ service CodeAnalyzerService @(path: '/api/analyzer') {
         *
     };
 
+    entity TenantConfig as projection on analyzer.TenantConfig {
+        *
+    };
+
     // ═══════════════════════════════════════════════════════════════
     // Types for Action Parameters & Return Values
     // ═══════════════════════════════════════════════════════════════
