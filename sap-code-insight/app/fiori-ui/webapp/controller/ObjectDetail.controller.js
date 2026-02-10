@@ -745,39 +745,24 @@ sap.ui.define([
 
         _loadTemplates: function () {
             var that = this;
-            var oModel = this.getOwnerComponent().getModel();
-            var aLocalTemplates = this._oTemplateModel.getProperty("/templates") || [];
 
-            try {
-                var oListBinding = oModel.bindList("/DocumentTemplates");
-                oListBinding.requestContexts(0, 100).then(function (aContexts) {
-                    var aBackendTemplates = aContexts.map(function (oCtx) {
-                        return oCtx.getObject();
-                    });
-
-                    // Merge: backend templates + locally created ones (by ID)
-                    var mIds = {};
-                    var aMerged = [];
-                    aBackendTemplates.forEach(function (t) { mIds[t.ID] = true; aMerged.push(t); });
-                    aLocalTemplates.forEach(function (t) {
-                        if (!mIds[t.ID]) { aMerged.push(t); }
-                    });
-
-                    if (aMerged.length === 0) {
-                        that._loadMockTemplates();
+            jQuery.ajax({
+                url: "/api/analyzer/DocumentTemplates",
+                method: "GET",
+                dataType: "json",
+                success: function (oData) {
+                    var aBackendTemplates = oData.value || [];
+                    if (aBackendTemplates.length > 0) {
+                        that._oTemplateModel.setProperty("/templates", aBackendTemplates);
                     } else {
-                        that._oTemplateModel.setProperty("/templates", aMerged);
-                    }
-                }).catch(function () {
-                    if (aLocalTemplates.length === 0) {
                         that._loadMockTemplates();
                     }
-                });
-            } catch (e) {
-                if (aLocalTemplates.length === 0) {
+                },
+                error: function () {
+                    console.warn("Failed to load templates from backend");
                     that._loadMockTemplates();
                 }
-            }
+            });
         },
 
         _loadMockTemplates: function () {
@@ -935,11 +920,12 @@ sap.ui.define([
                 }
             }
 
-            // Save to backend via OData
-            var oModel = this.getOwnerComponent().getModel();
-            try {
-                var oListBinding = oModel.bindList("/DocumentTemplates");
-                var oContext = oListBinding.create({
+            // Save to backend via direct HTTP POST
+            jQuery.ajax({
+                url: "/api/analyzer/DocumentTemplates",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
                     templateName: oNewTemplate.templateName,
                     templateType: oNewTemplate.templateType,
                     description: oNewTemplate.description,
@@ -948,16 +934,16 @@ sap.ui.define([
                     referenceContent: oNewTemplate.referenceContent,
                     referenceFileName: oNewTemplate.referenceFileName,
                     isActive: oNewTemplate.isActive
-                });
-
-                oContext.created().then(function () {
-                    // Refresh from backend to get server-generated IDs
+                }),
+                success: function () {
                     that._loadTemplates();
-                    MessageToast.show("Template created and saved!");
-                }).catch(function () {
+                    MessageToast.show("Template created and saved to database!");
+                },
+                error: function (jqXHR) {
+                    console.error("Failed to save template:", jqXHR.status, jqXHR.responseText);
                     MessageToast.show("Template created locally (backend save failed).");
-                });
-            } catch (e) { /* fallback to local */ }
+                }
+            });
 
             // Update local model immediately for UI responsiveness
             var aTemplates = this._oTemplateModel.getProperty("/templates");

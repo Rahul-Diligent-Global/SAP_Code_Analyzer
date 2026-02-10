@@ -407,25 +407,24 @@ sap.ui.define([
 
         _loadTenants: function () {
             var that = this;
-            var oModel = this.getOwnerComponent().getModel();
 
-            try {
-                var oListBinding = oModel.bindList("/TenantConfig");
-                oListBinding.requestContexts(0, 100).then(function (aContexts) {
-                    var aTenants = aContexts.map(function (oCtx) {
-                        return oCtx.getObject();
-                    });
+            jQuery.ajax({
+                url: "/api/analyzer/TenantConfig",
+                method: "GET",
+                dataType: "json",
+                success: function (oData) {
+                    var aTenants = oData.value || [];
                     if (aTenants.length > 0) {
                         that._oTenantModel.setProperty("/tenants", aTenants);
                     } else {
                         that._loadMockTenants();
                     }
-                }).catch(function () {
+                },
+                error: function (jqXHR) {
+                    console.warn("Failed to load tenants from backend:", jqXHR.status, jqXHR.responseText);
                     that._loadMockTenants();
-                });
-            } catch (e) {
-                that._loadMockTenants();
-            }
+                }
+            });
         },
 
         _loadMockTenants: function () {
@@ -549,35 +548,23 @@ sap.ui.define([
                 onboardedAt: new Date().toISOString()
             };
 
-            // Persist to backend via OData
-            var oModel = this.getOwnerComponent().getModel();
-            try {
-                var oListBinding = oModel.bindList("/TenantConfig");
-                var oContext = oListBinding.create({
-                    tenantId: oNewTenant.tenantId,
-                    tenantName: oNewTenant.tenantName,
-                    tenantDomain: oNewTenant.tenantDomain,
-                    plan: oNewTenant.plan,
-                    status: oNewTenant.status,
-                    destinationName: oNewTenant.destinationName,
-                    sapSystemId: oNewTenant.sapSystemId,
-                    sapClientNumber: oNewTenant.sapClientNumber,
-                    maxAPICallsPerMonth: oNewTenant.maxAPICallsPerMonth,
-                    currentAPICallCount: 0,
-                    anonymizationLevel: oNewTenant.anonymizationLevel,
-                    onboardedAt: oNewTenant.onboardedAt
-                });
-
-                oContext.created().then(function () {
+            // Persist to backend via direct HTTP POST
+            jQuery.ajax({
+                url: "/api/analyzer/TenantConfig",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(oNewTenant),
+                success: function (oData) {
                     // Refresh from backend to get server-generated ID
                     that._loadTenants();
-                    MessageToast.show("Tenant '" + sName + "' onboarded successfully!");
-                }).catch(function (oErr) {
-                    MessageBox.error("Failed to save tenant to database: " + (oErr.message || "Unknown error"));
-                });
-            } catch (e) {
-                MessageBox.error("Failed to create tenant: " + e.message);
-            }
+                    MessageToast.show("Tenant '" + sName + "' saved to database!");
+                },
+                error: function (jqXHR) {
+                    console.error("Failed to save tenant:", jqXHR.status, jqXHR.responseText);
+                    MessageBox.error("Failed to save tenant to database. Check console for details.\n" +
+                        (jqXHR.responseJSON?.error?.message || jqXHR.statusText));
+                }
+            });
 
             // Also update local model immediately for UI responsiveness
             var aTenants = this._oTenantModel.getProperty("/tenants");
