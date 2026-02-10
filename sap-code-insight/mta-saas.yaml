@@ -6,6 +6,13 @@ description: SAP Code Insight SaaS - Multi-Tenant with Security
 parameters:
   enable-parallel-deployments: true
 
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+
 modules:
   # ═══════════════════════════════════════════════════════════
   # CAP Backend Service (Multi-Tenant)
@@ -33,6 +40,8 @@ modules:
       - name: codeinsight-connectivity
       - name: codeinsight-credstore
       - name: codeinsight-auditlog
+    build-parameters:
+      builder: npm
     provides:
       - name: srv-api
         properties:
@@ -92,6 +101,9 @@ modules:
     path: gen/db
     parameters:
       buildpack: nodejs_buildpack
+    build-parameters:
+      builder: custom
+      commands: []
     requires:
       - name: codeinsight-sm
 
