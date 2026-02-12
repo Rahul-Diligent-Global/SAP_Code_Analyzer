@@ -72,9 +72,13 @@ class ClaudeAnalyzer {
             includes, customPrompt, templatePrompt, analysisType: effectiveType
         });
 
-        LOG.info(`Sending ${sourceCode.length} chars to Claude API (model: ${this.model})`);
+        // Increase token limit for COMPREHENSIVE mode to allow much larger output
+        const effectiveMaxTokens = (detailLevel === 'COMPREHENSIVE') ? Math.max(this.maxTokens, 16384) :
+            (detailLevel === 'SUMMARY') ? Math.min(this.maxTokens, 4096) : this.maxTokens;
 
-        const response = await this._callClaudeAPI(systemPrompt, userMessage);
+        LOG.info(`Sending ${sourceCode.length} chars to Claude API (model: ${this.model}, maxTokens: ${effectiveMaxTokens}, detail: ${detailLevel || 'DETAILED'})`);
+
+        const response = await this._callClaudeAPI(systemPrompt, userMessage, effectiveMaxTokens);
 
         // Parse the structured response
         const analysis = this._parseBRDResponse(response.content);
@@ -270,13 +274,41 @@ CRITICAL INSTRUCTIONS:
 ${focusInstructions}
 
 DETAIL LEVEL: ${detailLevel || 'DETAILED'}
-- SUMMARY: High-level overview, 2-3 pages
-- DETAILED: Full document with all sections, 5-10 pages
-- COMPREHENSIVE: Complete specification with data mappings, 10+ pages
+${this._getDetailLevelInstructions(detailLevel)}
 
 OUTPUT FORMAT: You MUST return a valid JSON object with the following structure:
 ${JSON.stringify(flexibleSchema, null, 2)}
 
+${(detailLevel === 'COMPREHENSIVE') ? `
+ADDITIONAL COMPREHENSIVE FIELDS (add these as top-level fields alongside sections):
+"processingLogic": [
+  {
+    "subroutineName": "string - FORM/METHOD/FUNCTION name or MAIN PROGRAM",
+    "purpose": "string - What this routine does in business terms",
+    "steps": [
+      {
+        "stepNumber": "number",
+        "type": "string - one of: START, END, PROCESS, IF, ELSEIF, ELSE, ENDIF, LOOP, ENDLOOP, READ, SELECT, CALL, WRITE, MOVE, CALCULATE, CHECK, EXIT, RETURN",
+        "condition": "string - The actual condition/expression (e.g., 'IF SY-SUBRC = 0', 'LOOP AT GT_DATA WHERE BUKRS = LV_BUKRS')",
+        "description": "string - What this step does in business terms",
+        "indentLevel": "number - nesting depth (0 for top level, 1 for inside first IF, 2 for nested IF, etc.)",
+        "codeReference": "string - The approximate line or code snippet being referenced"
+      }
+    ]
+  }
+],
+"flowchart": [
+  {
+    "id": "string - unique step id (e.g., S1, S2, D1, D2)",
+    "type": "string - one of: start, end, process, decision, loop, io",
+    "label": "string - Short label for the flowchart box",
+    "description": "string - Detailed description",
+    "yesTarget": "string - id of next step if YES (for decisions)",
+    "noTarget": "string - id of next step if NO (for decisions)",
+    "nextTarget": "string - id of next step (for non-decisions)"
+  }
+]
+` : ''}
 IMPORTANT:
 - Every section must contain substantive content derived from the actual code analysis
 - Use professional business language, not technical jargon
@@ -305,25 +337,106 @@ IMPORTANT: The document title (documentTitle field) MUST reflect the correct doc
 - If generating a ${typeLabel}, the title should include "${typeLabel}" (NOT "Business Requirements Document" unless this IS a BRD)
 
 DETAIL LEVEL: ${detailLevel || 'DETAILED'}
-- SUMMARY: High-level overview, 2-3 pages
-- DETAILED: Full document with all sections, 5-10 pages
-- COMPREHENSIVE: Complete specification with data mappings, 10+ pages
+${this._getDetailLevelInstructions(detailLevel)}
 
 OUTPUT FORMAT: You MUST return a valid JSON object with the following structure:
 ${JSON.stringify(sections, null, 2)}
 
+${(detailLevel === 'COMPREHENSIVE') ? `
+ADDITIONAL COMPREHENSIVE FIELDS (add these as top-level fields in the JSON):
+"processingLogic": [
+  {
+    "subroutineName": "string - FORM/METHOD/FUNCTION name or MAIN PROGRAM",
+    "purpose": "string - What this routine does in business terms",
+    "steps": [
+      {
+        "stepNumber": "number",
+        "type": "string - one of: START, END, PROCESS, IF, ELSEIF, ELSE, ENDIF, LOOP, ENDLOOP, READ, SELECT, CALL, WRITE, MOVE, CALCULATE, CHECK, EXIT, RETURN",
+        "condition": "string - The actual condition/expression (e.g., 'IF SY-SUBRC = 0', 'LOOP AT GT_DATA WHERE BUKRS = LV_BUKRS')",
+        "description": "string - What this step does in business terms",
+        "indentLevel": "number - nesting depth (0 for top level, 1 for inside first IF, 2 for nested IF, etc.)",
+        "codeReference": "string - The approximate line or code snippet being referenced"
+      }
+    ]
+  }
+],
+"flowchart": [
+  {
+    "id": "string - unique step id (e.g., S1, S2, D1, D2)",
+    "type": "string - one of: start, end, process, decision, loop, io",
+    "label": "string - Short label for the flowchart box",
+    "description": "string - Detailed description",
+    "yesTarget": "string - id of next step if YES (for decisions)",
+    "noTarget": "string - id of next step if NO (for decisions)",
+    "nextTarget": "string - id of next step (for non-decisions)"
+  }
+]
+` : ''}
 IMPORTANT:
 - Every field must contain substantive content derived from the actual code analysis
 - Use professional business language, not technical jargon
 - Include specific field names, table names mapped to business terminology
 - For each business rule, reference the corresponding code section
 - All text values should be properly escaped for JSON
-- The "documentMetadata" field is an array of key-value pairs for the cover page (e.g., Client Name, Project Name, Module, WRICEF Number, Version, Date, Type of Development, Complexity)
-- The "versionHistory" array captures document revision tracking (date, version, description, preparedBy, approvedBy)
-- The "customSections" array allows you to add any additional sections from the reference template that don't fit the standard schema`;
+- The "documentMetadata" field is an array of key-value pairs for the cover page
+- The "versionHistory" array captures document revision tracking
+- The "customSections" array allows you to add any additional sections`;
         }
 
         return prompt;
+    }
+
+    /**
+     * Get detailed instructions per detail level
+     */
+    _getDetailLevelInstructions(detailLevel) {
+        switch (detailLevel) {
+            case 'SUMMARY':
+                return `SUMMARY MODE (2-3 pages):
+- Provide a high-level executive overview only
+- Cover only the main purpose, key business rules, and critical integration points
+- Keep each section brief (1-2 paragraphs max)
+- Skip detailed data specifications, test scenarios, and code-level details
+- Focus on WHAT the program does, not HOW it does it`;
+
+            case 'COMPREHENSIVE':
+                return `COMPREHENSIVE MODE (15-25+ pages) - MAXIMUM DETAIL:
+- This is the most detailed analysis possible. Cover EVERYTHING.
+- Write LONG, DETAILED paragraphs for every section (minimum 3-5 paragraphs per section)
+- List EVERY database table, EVERY field, EVERY business rule found in the code
+- Document ALL functional requirements with full traceability to code
+- Include COMPLETE data specification with every input/output field
+- Document ALL error handling paths and edge cases
+- Write detailed test scenarios for every business path
+
+CRITICAL - PROCESSING LOGIC DEEP DIVE:
+- You MUST include a "processingLogic" array in your JSON response
+- Walk through EVERY subroutine/form/method in the code step by step
+- Document EVERY IF/ELSEIF/ELSE condition with the actual ABAP condition expression
+- Document EVERY LOOP (LOOP AT, DO, WHILE) with its iteration logic
+- Document EVERY READ TABLE, SELECT, CALL FUNCTION with its purpose
+- Show nesting depth via "indentLevel" (0=top, 1=inside IF, 2=nested IF, etc.)
+- Cover ALL the core processing logic, not just the happy path
+
+CRITICAL - FLOWCHART:
+- You MUST include a "flowchart" array in your JSON response
+- Create a complete program flowchart with START, decision diamonds, process boxes
+- Every IF condition becomes a "decision" node with yesTarget and noTarget
+- Every LOOP becomes a "loop" node
+- Every data operation (SELECT, READ TABLE) becomes a "process" node
+- Every output (WRITE, ALV display) becomes an "io" node
+- Connect all nodes with nextTarget/yesTarget/noTarget to form a complete flow
+- The flowchart should cover the ENTIRE program flow from start to end`;
+
+            default: // DETAILED
+                return `DETAILED MODE (5-10 pages):
+- Provide thorough coverage of all sections
+- Include specific field names, table names, and business rules
+- Document all functional requirements with business rule references
+- Include data specifications with key fields
+- Cover main processing logic at a moderate level of detail
+- Include test scenarios for primary business paths`;
+        }
     }
 
     /**
@@ -379,14 +492,14 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
     /**
      * Call Claude API
      */
-    async _callClaudeAPI(systemPrompt, userMessage) {
+    async _callClaudeAPI(systemPrompt, userMessage, maxTokens) {
         if (!this.apiKey) {
             throw new Error('ANTHROPIC_API_KEY not configured. Set it in environment variables or BTP Credential Store.');
         }
 
         const requestBody = {
             model: this.model,
-            max_tokens: this.maxTokens,
+            max_tokens: maxTokens || this.maxTokens,
             system: systemPrompt,
             messages: [
                 {

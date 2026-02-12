@@ -1184,6 +1184,56 @@ sap.ui.define([
                 }.bind(this));
             }
 
+            // Processing Logic (COMPREHENSIVE mode)
+            if (oAnalysis.processingLogic && oAnalysis.processingLogic.length > 0) {
+                aHtml.push(this._sectionHeader("Processing Logic - Detailed Flow"));
+                aHtml.push("<p style='color:#666;font-style:italic;'>Step-by-step walkthrough of all core processing logic including every IF/ELSE condition, LOOP, and data operation.</p>");
+                oAnalysis.processingLogic.forEach(function (routine) {
+                    if (!routine || !routine.subroutineName) return;
+                    aHtml.push("<h4 style='color:#1F4E79;margin:16px 0 6px;font-size:14px;'>" + this._escapeHtml(routine.subroutineName) + "</h4>");
+                    if (routine.purpose) {
+                        aHtml.push("<p><strong>Purpose:</strong> " + this._escapeHtml(routine.purpose) + "</p>");
+                    }
+                    if (routine.steps && routine.steps.length > 0) {
+                        aHtml.push(this._htmlTable(
+                            ["Step", "Type", "Condition / Code", "Description"],
+                            routine.steps.map(function (s) {
+                                var indent = s.indentLevel ? "\u00A0\u00A0".repeat(s.indentLevel) : "";
+                                return [
+                                    String(s.stepNumber || ""),
+                                    indent + (s.type || ""),
+                                    s.condition || s.codeReference || "",
+                                    s.description || ""
+                                ];
+                            }),
+                            ["6%", "14%", "40%", "40%"]
+                        ));
+                    }
+                }.bind(this));
+            }
+
+            // Flowchart (COMPREHENSIVE mode)
+            if (oAnalysis.flowchart && oAnalysis.flowchart.length > 0) {
+                aHtml.push(this._sectionHeader("Program Flowchart"));
+                aHtml.push("<p style='color:#666;font-style:italic;'>Complete program flow with decision points, loops, and processing steps.</p>");
+                var shapeMap = { start: "[START]", end: "[END]", process: "[PROCESS]", decision: "&lt;DECISION&gt;", loop: "((LOOP))", io: "[/IO/]" };
+                aHtml.push(this._htmlTable(
+                    ["ID", "Type", "Description", "Flow"],
+                    oAnalysis.flowchart.map(function (node) {
+                        var shape = shapeMap[node.type] || "[" + (node.type || "?").toUpperCase() + "]";
+                        var flow = "";
+                        if (node.type === "decision") {
+                            flow = "YES → " + (node.yesTarget || "?") + " | NO → " + (node.noTarget || "?");
+                        } else {
+                            flow = "→ " + (node.nextTarget || "END");
+                        }
+                        var desc = (node.label || "") + (node.description ? " - " + node.description : "");
+                        return [node.id || "", shape, desc, flow];
+                    }),
+                    ["8%", "12%", "55%", "25%"]
+                ));
+            }
+
             // Fallback: raw analysis
             if (oAnalysis.rawAnalysis) {
                 aHtml.push(this._sectionHeader("Raw Analysis"));

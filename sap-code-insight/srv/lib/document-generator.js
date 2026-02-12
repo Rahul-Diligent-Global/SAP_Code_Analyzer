@@ -572,6 +572,75 @@ class DocumentGenerator {
         }
 
         // ═══════════════════════════════════════════════════════════
+        // PROCESSING LOGIC (COMPREHENSIVE mode)
+        // ═══════════════════════════════════════════════════════════
+        if (analysis.processingLogic && Array.isArray(analysis.processingLogic) && analysis.processingLogic.length > 0) {
+            children.push(
+                new Paragraph({ children: [new PageBreak()] }),
+                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('Processing Logic - Detailed Flow')] })
+            );
+            children.push(new Paragraph({
+                children: [new TextRun({ text: 'This section provides a step-by-step walkthrough of all core processing logic including every IF/ELSE condition, LOOP, and data operation.', italics: true })]
+            }));
+
+            for (const routine of analysis.processingLogic) {
+                if (!routine || !routine.subroutineName) continue;
+                children.push(
+                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(routine.subroutineName)] })
+                );
+                if (routine.purpose) {
+                    children.push(new Paragraph({ children: [new TextRun({ text: 'Purpose: ', bold: true }), new TextRun(routine.purpose)] }));
+                }
+                if (routine.steps && Array.isArray(routine.steps) && routine.steps.length > 0) {
+                    // Render steps as a table with indentation shown via prefix
+                    const stepHeaders = ['Step', 'Type', 'Condition / Code', 'Description'];
+                    const stepRows = routine.steps.map(step => {
+                        const indent = step.indentLevel ? '  '.repeat(step.indentLevel) : '';
+                        return [
+                            String(step.stepNumber || ''),
+                            indent + (step.type || ''),
+                            step.condition || step.codeReference || '',
+                            step.description || ''
+                        ];
+                    });
+                    children.push(...this._createTable(stepHeaders, stepRows));
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // FLOWCHART (COMPREHENSIVE mode)
+        // ═══════════════════════════════════════════════════════════
+        if (analysis.flowchart && Array.isArray(analysis.flowchart) && analysis.flowchart.length > 0) {
+            children.push(
+                new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('Program Flowchart')] })
+            );
+            children.push(new Paragraph({
+                children: [new TextRun({ text: 'This section shows the complete program flow with decision points, loops, and processing steps.', italics: true })]
+            }));
+
+            // Render flowchart as a visual table: ID | Shape | Label | Next
+            const fcHeaders = ['ID', 'Type', 'Description', 'Flow'];
+            const fcRows = analysis.flowchart.map(node => {
+                const shapeMap = { start: '[START]', end: '[END]', process: '[PROCESS]', decision: '<DECISION>', loop: '((LOOP))', io: '[/IO/]' };
+                const shape = shapeMap[node.type] || '[' + (node.type || '?').toUpperCase() + ']';
+                let flow = '';
+                if (node.type === 'decision') {
+                    flow = 'YES → ' + (node.yesTarget || '?') + ' | NO → ' + (node.noTarget || '?');
+                } else {
+                    flow = '→ ' + (node.nextTarget || 'END');
+                }
+                return [
+                    node.id || '',
+                    shape,
+                    (node.label || '') + (node.description ? '\n' + node.description : ''),
+                    flow
+                ];
+            });
+            children.push(...this._createTable(fcHeaders, fcRows));
+        }
+
+        // ═══════════════════════════════════════════════════════════
         // APPENDIX
         // ═══════════════════════════════════════════════════════════
         if (analysis.appendix) {
