@@ -603,7 +603,10 @@ class DocumentGenerator {
                             step.description || ''
                         ];
                     });
-                    children.push(...this._createTable(stepHeaders, stepRows));
+                    children.push(this._createTable(stepHeaders, stepRows,
+                        [800, 1400, 3600, 3560],
+                        { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+                    ));
                 }
             }
         }
@@ -637,7 +640,10 @@ class DocumentGenerator {
                     flow
                 ];
             });
-            children.push(...this._createTable(fcHeaders, fcRows));
+            children.push(this._createTable(fcHeaders, fcRows,
+                [1200, 1600, 4160, 2400],
+                { borders, cellMargins, headerShading, altRowShading, TableRow, TableCell, Table, Paragraph, TextRun, WidthType, ShadingType, AlignmentType }
+            ));
         }
 
         // ═══════════════════════════════════════════════════════════
