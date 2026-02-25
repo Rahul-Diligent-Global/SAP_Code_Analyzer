@@ -441,55 +441,35 @@ sap.ui.define([
                 this._oSourceCodeDialog.destroy();
             }
 
-            var sCode = oObject.sourceCode || "// No source code available";
+            var sCode = oObject.sourceCode || "* No source code available";
             var aLines = sCode.split("\n");
 
-            // Build HTML with line numbers and syntax highlighting
-            var aHtml = [
-                "<div style='font-family: \"Courier New\", Consolas, monospace; font-size: 13px; background: #1e1e1e; color: #d4d4d4; padding: 12px; overflow: auto; height: 100%; line-height: 1.5; tab-size: 4;'>"
-            ];
-
-            aHtml.push("<table style='border-collapse: collapse; width: 100%;'>");
+            // Build line-numbered plain text for the code area
+            var aNumbered = [];
             for (var i = 0; i < aLines.length; i++) {
-                var sLine = aLines[i]
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;");
-
-                // ABAP syntax highlighting
-                // Comments (lines starting with * or containing ")
-                if (/^\*/.test(sLine.trim()) || /^\s*"/.test(sLine)) {
-                    sLine = "<span style='color: #6a9955;'>" + sLine + "</span>";
-                } else {
-                    // Keywords
-                    sLine = sLine.replace(
-                        /\b(REPORT|DATA|TYPE|TYPES|CONSTANTS|FIELD-SYMBOLS|INCLUDE|TABLES|SELECT|FROM|WHERE|INTO|TABLE|ENDSELECT|IF|ELSE|ELSEIF|ENDIF|DO|ENDDO|LOOP|ENDLOOP|AT|ENDAT|CASE|WHEN|ENDCASE|FORM|ENDFORM|PERFORM|CALL|FUNCTION|METHOD|ENDMETHOD|CLASS|ENDCLASS|WRITE|APPEND|CLEAR|REFRESH|FREE|MOVE|MOVE-CORRESPONDING|SORT|DELETE|MODIFY|READ|INSERT|COLLECT|CONCATENATE|SPLIT|REPLACE|CONDENSE|TRANSLATE|SEARCH|ASSIGN|UNASSIGN|NEW|CREATE|RAISE|TRY|CATCH|ENDTRY|RETURN|EXIT|CHECK|CONTINUE|STOP|SUBMIT|LEAVE|SET|GET|EXPORT|IMPORT|MESSAGE|AUTHORITY-CHECK|COMMIT|ROLLBACK|USING|CHANGING|RETURNING|EXPORTING|IMPORTING|VALUE|REFERENCE|BEGIN|END|OF|STRUCTURE|DEFINITION|IMPLEMENTATION|PUBLIC|PRIVATE|PROTECTED|SECTION|INHERITING|ABSTRACT|FINAL|REDEFINITION|CORRESPONDING|ABAP|LIKE|LINE|STANDARD|SORTED|HASHED|RANGE|INITIAL|SPACE|SY-SUBRC|SY-TABIX|SY-INDEX|SY-DATUM|SY-UZEIT|WITH|HEADER|OCCURS|SELECTION-SCREEN|PARAMETERS|SELECT-OPTIONS|AS|CHECKBOX|RADIOBUTTON|GROUP|DEFAULT|OBLIGATORY|NO-DISPLAY)\b/gi,
-                        "<span style='color: #569cd6;'>$1</span>"
-                    );
-                    // Strings
-                    sLine = sLine.replace(
-                        /('[^']*')/g,
-                        "<span style='color: #ce9178;'>$1</span>"
-                    );
-                    // Numbers
-                    sLine = sLine.replace(
-                        /\b(\d+)\b/g,
-                        "<span style='color: #b5cea8;'>$1</span>"
-                    );
-                }
-
-                var sLineNum = String(i + 1);
-                aHtml.push(
-                    "<tr>" +
-                    "<td style='color: #858585; text-align: right; padding-right: 12px; user-select: none; border-right: 1px solid #333; min-width: 45px; vertical-align: top;'>" + sLineNum + "</td>" +
-                    "<td style='padding-left: 12px; white-space: pre; word-break: break-all;'>" + sLine + "</td>" +
-                    "</tr>"
-                );
+                var sNum = String(i + 1);
+                // Pad line number to 5 chars for alignment
+                while (sNum.length < 5) { sNum = " " + sNum; }
+                aNumbered.push(sNum + "  " + aLines[i]);
             }
-            aHtml.push("</table></div>");
+            var sFormattedCode = aNumbered.join("\n");
 
-            var oHtmlContent = new sap.ui.core.HTML({
-                content: "<div style='height:100%;'>" + aHtml.join("") + "</div>"
+            // Use a simple pre/code block - no HTML injection, pure text
+            var oCodeDisplay = new sap.m.ScrollContainer({
+                height: "100%",
+                width: "100%",
+                vertical: true,
+                horizontal: true,
+                content: [
+                    new sap.ui.core.HTML({
+                        content: "<pre style='font-family: Consolas, \"Courier New\", monospace; font-size: 13px; " +
+                            "background: #1e1e1e; color: #d4d4d4; margin: 0; padding: 16px; " +
+                            "line-height: 1.6; tab-size: 4; white-space: pre; min-height: 100%;'>" +
+                            sFormattedCode.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+                            "</pre>",
+                        sanitizeContent: false
+                    })
+                ]
             });
 
             this._oSourceCodeDialog = new Dialog({
@@ -498,7 +478,7 @@ sap.ui.define([
                 contentHeight: "600px",
                 resizable: true,
                 draggable: true,
-                content: [oHtmlContent],
+                content: [oCodeDisplay],
                 endButton: new Button({
                     text: "Close",
                     press: function () {
