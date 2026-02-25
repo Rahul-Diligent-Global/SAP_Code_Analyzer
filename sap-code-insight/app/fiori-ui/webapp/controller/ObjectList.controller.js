@@ -914,25 +914,35 @@ sap.ui.define([
                 "</div>"
             });
 
-            // Generate Document button - uses ActionSheet (MenuButton is not a Button subclass and cannot be used as dialog beginButton)
-            var oGenDocActionSheet = new sap.m.ActionSheet({
-                title: "Generate Document",
-                placement: "Top",
-                buttons: [
-                    new Button({ text: "BRD (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "BRD", [oObject]); } }),
-                    new Button({ text: "BRD (PDF)", icon: "sap-icon://pdf-attachment", press: function () { that._showZipGenDialog("PDF", "BRD", [oObject]); } }),
-                    new Button({ text: "Functional Spec (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "FUNC_SPEC", [oObject]); } }),
-                    new Button({ text: "Technical Spec (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "TECH_SPEC", [oObject]); } }),
-                    new Button({ text: "Code Review (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "CODE_REVIEW", [oObject]); } })
-                ]
-            });
-
+            // Generate Document button - opens a selection dialog on top
             var oGenDocBtn = new Button({
                 text: "Generate Document",
                 icon: "sap-icon://document",
                 type: "Emphasized",
                 press: function () {
-                    oGenDocActionSheet.openBy(oGenDocBtn);
+                    if (that._oGenDocSelectDialog) {
+                        that._oGenDocSelectDialog.destroy();
+                    }
+                    that._oGenDocSelectDialog = new Dialog({
+                        title: "Generate Document - " + oObject.objectName,
+                        contentWidth: "380px",
+                        content: [
+                            new VBox({
+                                items: [
+                                    new Button({ text: "BRD (Word)", icon: "sap-icon://document", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("DOCX", "BRD", [oObject]); } }).addStyleClass("sapUiSmallMarginBottom"),
+                                    new Button({ text: "BRD (PDF)", icon: "sap-icon://pdf-attachment", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("PDF", "BRD", [oObject]); } }).addStyleClass("sapUiSmallMarginBottom"),
+                                    new Button({ text: "Functional Spec (Word)", icon: "sap-icon://document", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("DOCX", "FUNC_SPEC", [oObject]); } }).addStyleClass("sapUiSmallMarginBottom"),
+                                    new Button({ text: "Technical Spec (Word)", icon: "sap-icon://document", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("DOCX", "TECH_SPEC", [oObject]); } }).addStyleClass("sapUiSmallMarginBottom"),
+                                    new Button({ text: "Code Review (Word)", icon: "sap-icon://document", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("DOCX", "CODE_REVIEW", [oObject]); } })
+                                ]
+                            }).addStyleClass("sapUiSmallMargin")
+                        ],
+                        endButton: new Button({
+                            text: "Cancel",
+                            press: function () { that._oGenDocSelectDialog.close(); }
+                        })
+                    });
+                    that._oGenDocSelectDialog.open();
                 }
             });
 
