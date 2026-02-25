@@ -435,9 +435,13 @@ sap.ui.define([
                         cells: [
                             new sap.m.Link({
                                 text: "{objectName}",
+                                wrapping: false,
+                                customData: [
+                                    new sap.ui.core.CustomData({ key: "fileName", value: "{fileName}" })
+                                ],
                                 press: function (oEvent) {
-                                    var oCtx = oEvent.getSource().getBindingContext();
-                                    var sFileName = oCtx.getProperty("fileName");
+                                    var sFileName = oEvent.getSource().data("fileName");
+                                    if (!sFileName) { return; }
                                     var oObj = that._aZipObjects.find(function (o) { return o.fileName === sFileName; });
                                     if (oObj) { that._showSourceCode(oObj); }
                                 }
