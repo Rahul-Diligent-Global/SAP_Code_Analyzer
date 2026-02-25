@@ -490,7 +490,16 @@ sap.ui.define([
                     oSearchField,
                     new ToolbarSpacer(),
                     new Label({ text: "Type:" }),
-                    oTypeFilterSelect
+                    oTypeFilterSelect,
+                    new ToolbarSpacer(),
+                    new Button({
+                        icon: "sap-icon://excel-attachment",
+                        tooltip: "Export to Excel",
+                        type: "Transparent",
+                        press: function () {
+                            that._exportZipListToExcel(oZipTable);
+                        }
+                    })
                 ]
             });
 
@@ -510,6 +519,42 @@ sap.ui.define([
             });
 
             this._oZipResultDialog.open();
+        },
+
+        _exportZipListToExcel: function (oTable) {
+            // Get currently visible (filtered) items from the table binding
+            var oBinding = oTable.getBinding("items");
+            var aContexts = oBinding.getContexts(0, oBinding.getLength());
+
+            var aRows = aContexts.map(function (oCtx) {
+                return {
+                    objectName: oCtx.getProperty("objectName"),
+                    objectType: oCtx.getProperty("objectType")
+                };
+            });
+
+            // Build CSV content with BOM for Excel UTF-8 support
+            var sCsv = "\uFEFF";
+            sCsv += "Object Name,Object Type\r\n";
+            aRows.forEach(function (row) {
+                // Escape fields that may contain commas
+                var sName = '"' + (row.objectName || "").replace(/"/g, '""') + '"';
+                var sType = '"' + (row.objectType || "").replace(/"/g, '""') + '"';
+                sCsv += sName + "," + sType + "\r\n";
+            });
+
+            // Trigger download
+            var oBlob = new Blob([sCsv], { type: "text/csv;charset=utf-8;" });
+            var sUrl = URL.createObjectURL(oBlob);
+            var oLink = document.createElement("a");
+            oLink.href = sUrl;
+            oLink.download = "ABAP_Object_List.csv";
+            document.body.appendChild(oLink);
+            oLink.click();
+            document.body.removeChild(oLink);
+            URL.revokeObjectURL(sUrl);
+
+            MessageToast.show("Exported " + aRows.length + " objects to Excel");
         },
 
         _openZipColumnMenu: function (sField, oColumn, oOtherColumn, oTable) {
