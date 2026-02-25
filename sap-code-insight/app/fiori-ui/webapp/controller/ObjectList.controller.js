@@ -394,16 +394,107 @@ sap.ui.define([
             var that = this;
 
             var oZipModel = new JSONModel({ objects: aObjects });
+            oZipModel.setSizeLimit(5000);
 
             if (this._oZipResultDialog) {
                 this._oZipResultDialog.destroy();
             }
 
-            var oTable = new Table({
+            // Collect unique object types for filter dropdown
+            var aUniqueTypes = [];
+            var oTypeSeen = {};
+            aObjects.forEach(function (obj) {
+                if (!oTypeSeen[obj.objectType]) {
+                    oTypeSeen[obj.objectType] = true;
+                    aUniqueTypes.push(obj.objectType);
+                }
+            });
+            aUniqueTypes.sort();
+
+            // Search field for Object Name
+            var oSearchField = new sap.m.SearchField({
+                placeholder: "Search by object name...",
+                width: "250px",
+                liveChange: function (oEvent) {
+                    that._applyZipFilters(oZipTable, oSearchField, oTypeFilter);
+                }
+            });
+
+            // Type filter dropdown
+            var oTypeFilter = new Select({
+                width: "180px",
+                items: [new Item({ key: "ALL", text: "All Types" })].concat(
+                    aUniqueTypes.map(function (sType) {
+                        return new Item({ key: sType, text: sType });
+                    })
+                ),
+                change: function () {
+                    that._applyZipFilters(oZipTable, oSearchField, oTypeFilter);
+                }
+            });
+
+            // Sort state tracker
+            this._sZipSortField = null;
+            this._bZipSortDesc = false;
+
+            // Sort by Name button
+            var oSortNameBtn = new Button({
+                icon: "sap-icon://sort",
+                text: "Name",
+                type: "Transparent",
+                press: function () {
+                    if (that._sZipSortField === "objectName") {
+                        that._bZipSortDesc = !that._bZipSortDesc;
+                    } else {
+                        that._sZipSortField = "objectName";
+                        that._bZipSortDesc = false;
+                    }
+                    oZipTable.getBinding("items").sort(new Sorter("objectName", that._bZipSortDesc));
+                }
+            });
+
+            // Sort by Type button
+            var oSortTypeBtn = new Button({
+                icon: "sap-icon://sort",
+                text: "Type",
+                type: "Transparent",
+                press: function () {
+                    if (that._sZipSortField === "objectType") {
+                        that._bZipSortDesc = !that._bZipSortDesc;
+                    } else {
+                        that._sZipSortField = "objectType";
+                        that._bZipSortDesc = false;
+                    }
+                    oZipTable.getBinding("items").sort(new Sorter("objectType", that._bZipSortDesc));
+                }
+            });
+
+            // Count label
+            var oCountLabel = new Label({ text: aObjects.length + " objects" });
+            oCountLabel.addStyleClass("sapUiSmallMarginBegin");
+            this._oZipCountLabel = oCountLabel;
+
+            // Toolbar
+            var oToolbar = new Toolbar({
+                content: [
+                    oSearchField,
+                    new ToolbarSpacer(),
+                    new Label({ text: "Type:" }),
+                    oTypeFilter,
+                    new ToolbarSpacer(),
+                    oSortNameBtn,
+                    oSortTypeBtn,
+                    oCountLabel
+                ]
+            });
+
+            // Table
+            var oZipTable = new Table({
                 growing: true,
                 growingThreshold: 50,
                 alternateRowColors: true,
                 mode: "None",
+                headerToolbar: oToolbar,
                 columns: [
                     new Column({ width: "55%", header: new Text({ text: "Object Name" }) }),
                     new Column({ width: "45%", header: new Text({ text: "Object Type" }) })
@@ -414,26 +505,33 @@ sap.ui.define([
                         type: "Navigation",
                         press: function (oEvent) {
                             var oCtx = oEvent.getSource().getBindingContext();
-                            var iIndex = parseInt(oCtx.getPath().split("/").pop(), 10);
-                            that._showSourceCode(that._aZipObjects[iIndex]);
+                            var sFileName = oCtx.getProperty("fileName");
+                            var oObj = that._aZipObjects.find(function (o) { return o.fileName === sFileName; });
+                            if (oObj) {
+                                that._showSourceCode(oObj);
+                            }
                         },
                         cells: [
                             new Text({ text: "{objectName}" }),
                             new Text({ text: "{objectType}" })
                         ]
                     })
+                },
+                updateFinished: function () {
+                    var iCount = oZipTable.getBinding("items").getLength();
+                    that._oZipCountLabel.setText(iCount + " of " + aObjects.length + " objects");
                 }
             });
 
-            oTable.setModel(oZipModel);
+            oZipTable.setModel(oZipModel);
 
             this._oZipResultDialog = new Dialog({
-                title: "ABAP Objects in ZIP (" + aObjects.length + " objects)",
-                contentWidth: "600px",
-                contentHeight: "450px",
+                title: "ABAP Objects in ZIP",
+                contentWidth: "750px",
+                contentHeight: "500px",
                 resizable: true,
                 draggable: true,
-                content: [oTable],
+                content: [oZipTable],
                 endButton: new Button({
                     text: "Close",
                     press: function () {
@@ -443,6 +541,21 @@ sap.ui.define([
             });
 
             this._oZipResultDialog.open();
+        },
+
+        _applyZipFilters: function (oTable, oSearchField, oTypeFilter) {
+            var aFilters = [];
+            var sQuery = oSearchField.getValue().trim();
+            var sType = oTypeFilter.getSelectedKey();
+
+            if (sQuery) {
+                aFilters.push(new Filter("objectName", FilterOperator.Contains, sQuery.toUpperCase()));
+            }
+            if (sType && sType !== "ALL") {
+                aFilters.push(new Filter("objectType", FilterOperator.EQ, sType));
+            }
+
+            oTable.getBinding("items").filter(aFilters.length > 0 ? new Filter({ filters: aFilters, and: true }) : []);
         },
 
         _showSourceCode: function (oObject) {
