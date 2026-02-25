@@ -911,6 +911,22 @@ sap.ui.define([
                 "</div>"
             });
 
+            // Generate Document MenuButton for source code dialog
+            var oGenDocMenuBtn = new sap.m.MenuButton({
+                text: "Generate Document",
+                icon: "sap-icon://document",
+                type: "Emphasized",
+                menu: new sap.m.Menu({
+                    items: [
+                        new sap.m.MenuItem({ text: "BRD (Word)", press: function () { that._showZipGenDialog("DOCX", "BRD", [oObject]); } }),
+                        new sap.m.MenuItem({ text: "BRD (PDF)", press: function () { that._showZipGenDialog("PDF", "BRD", [oObject]); } }),
+                        new sap.m.MenuItem({ text: "Functional Spec (Word)", press: function () { that._showZipGenDialog("DOCX", "FUNC_SPEC", [oObject]); } }),
+                        new sap.m.MenuItem({ text: "Technical Spec (Word)", press: function () { that._showZipGenDialog("DOCX", "TECH_SPEC", [oObject]); } }),
+                        new sap.m.MenuItem({ text: "Code Review (Word)", press: function () { that._showZipGenDialog("DOCX", "CODE_REVIEW", [oObject]); } })
+                    ]
+                })
+            });
+
             this._oSourceCodeDialog = new Dialog({
                 title: oObject.objectName + " (" + oObject.objectType + ") - " + iLineCount + " lines",
                 contentWidth: "900px",
@@ -918,6 +934,7 @@ sap.ui.define([
                 resizable: true,
                 draggable: true,
                 content: [oContainer],
+                beginButton: oGenDocMenuBtn,
                 endButton: new Button({
                     text: "Close",
                     press: function () { that._oSourceCodeDialog.close(); }
