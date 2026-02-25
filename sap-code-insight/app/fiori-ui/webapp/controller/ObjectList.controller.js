@@ -81,19 +81,6 @@ sap.ui.define([
         // ═══════════════════════════════════════════════════════════
 
         // ═══════════════════════════════════════════════════════════
-        // BY CLAUDE
-        // ═══════════════════════════════════════════════════════════
-
-        onByClaude: function () {
-            MessageBox.information(
-                "This application was built by Claude AI — Anthropic's AI assistant.\n\n" +
-                "Claude assisted in designing, developing, and refining the SAP Code Insight application, " +
-                "including ABAP code analysis, document generation, and the Fiori UI.",
-                { title: "By Claude" }
-            );
-        },
-
-        // ═══════════════════════════════════════════════════════════
         // OFFLINE ANALYSIS (Upload Code)
         // ═══════════════════════════════════════════════════════════
 

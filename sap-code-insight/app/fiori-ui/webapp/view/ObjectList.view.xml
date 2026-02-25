@@ -28,12 +28,6 @@
 
                         <HBox alignItems="Center">
                             <Button
-                                text="By Claude"
-                                icon="sap-icon://ai"
-                                type="Transparent"
-                                press=".onByClaude"
-                                class="codeInsightHeaderBtn"/>
-                            <Button
                                 text="Tenant Manager"
                                 icon="sap-icon://company-view"
                                 type="Transparent"
