@@ -485,6 +485,29 @@ sap.ui.define([
                 }
             });
 
+            // Generate Document MenuButton - disabled until selection
+            var oGenDocBtn = new sap.m.MenuButton({
+                text: "Generate Document",
+                icon: "sap-icon://document",
+                type: "Emphasized",
+                enabled: false,
+                menu: new sap.m.Menu({
+                    items: [
+                        new sap.m.MenuItem({ text: "Generate BRD (Word)", press: function () { that._onZipGenerateDoc("DOCX", "BRD"); } }),
+                        new sap.m.MenuItem({ text: "Generate BRD (PDF)", press: function () { that._onZipGenerateDoc("PDF", "BRD"); } }),
+                        new sap.m.MenuItem({ text: "Functional Spec (Word)", press: function () { that._onZipGenerateDoc("DOCX", "FUNC_SPEC"); } }),
+                        new sap.m.MenuItem({ text: "Technical Spec (Word)", press: function () { that._onZipGenerateDoc("DOCX", "TECH_SPEC"); } }),
+                        new sap.m.MenuItem({ text: "Code Review (Word)", press: function () { that._onZipGenerateDoc("DOCX", "CODE_REVIEW"); } })
+                    ]
+                })
+            });
+
+            // Enable/disable Generate button based on selection
+            oZipTable.attachSelectionChange(function () {
+                var iSelected = oZipTable.getSelectedItems().length;
+                oGenDocBtn.setEnabled(iSelected > 0);
+            });
+
             var oToolbar = new Toolbar({
                 content: [
                     oSearchField,
@@ -499,7 +522,8 @@ sap.ui.define([
                         press: function () {
                             that._exportZipListToExcel(oZipTable);
                         }
-                    })
+                    }),
+                    oGenDocBtn
                 ]
             });
 
@@ -519,6 +543,219 @@ sap.ui.define([
             });
 
             this._oZipResultDialog.open();
+        },
+
+        // ═══════════════════════════════════════════════════════════
+        // ZIP BATCH DOCUMENT GENERATION
+        // ═══════════════════════════════════════════════════════════
+
+        _onZipGenerateDoc: function (sFormat, sAnalysisType) {
+            var that = this;
+            var aSelectedItems = this._oZipTable.getSelectedItems();
+            if (aSelectedItems.length === 0) {
+                MessageBox.warning("Please select at least one object.");
+                return;
+            }
+
+            // Collect selected objects with source code
+            var aSelectedObjects = [];
+            aSelectedItems.forEach(function (oItem) {
+                var oCtx = oItem.getBindingContext();
+                var sFileName = oCtx.getProperty("fileName");
+                var oObj = that._aZipObjects.find(function (o) { return o.fileName === sFileName; });
+                if (oObj) { aSelectedObjects.push(oObj); }
+            });
+
+            // Show detail level dialog
+            this._showZipGenDialog(sFormat, sAnalysisType, aSelectedObjects);
+        },
+
+        _showZipGenDialog: function (sFormat, sAnalysisType, aSelectedObjects) {
+            var that = this;
+
+            if (this._oZipGenDialog) { this._oZipGenDialog.destroy(); }
+
+            var oDetailSelect = new Select({
+                width: "100%",
+                items: [
+                    new Item({ key: "SUMMARY", text: "Summary (2-3 pages)" }),
+                    new Item({ key: "DETAILED", text: "Detailed (5-10 pages)" }),
+                    new Item({ key: "COMPREHENSIVE", text: "Comprehensive (10+ pages)" })
+                ],
+                selectedKey: "DETAILED"
+            });
+
+            var oIncludeCodeCb = new sap.m.CheckBox({ text: "Include Source Code", selected: true });
+
+            var sDocLabel = sAnalysisType === "FUNC_SPEC" ? "Functional Spec" :
+                            sAnalysisType === "TECH_SPEC" ? "Technical Spec" :
+                            sAnalysisType === "CODE_REVIEW" ? "Code Review" : "BRD";
+
+            this._oZipGenDialog = new Dialog({
+                title: "Generate " + sDocLabel + " (" + sFormat + ") - " + aSelectedObjects.length + " objects",
+                contentWidth: "450px",
+                content: [
+                    new VBox({
+                        items: [
+                            new Label({ text: "Detail Level:", design: "Bold" }),
+                            oDetailSelect,
+                            oIncludeCodeCb
+                        ]
+                    }).addStyleClass("sapUiMediumMargin")
+                ],
+                beginButton: new Button({
+                    text: "Generate",
+                    type: "Emphasized",
+                    press: function () {
+                        that._oZipGenDialog.close();
+                        that._executeBatchGeneration(
+                            sFormat, sAnalysisType, aSelectedObjects,
+                            oDetailSelect.getSelectedKey(),
+                            oIncludeCodeCb.getSelected()
+                        );
+                    }
+                }),
+                endButton: new Button({
+                    text: "Cancel",
+                    press: function () { that._oZipGenDialog.close(); }
+                })
+            });
+
+            this._oZipGenDialog.open();
+        },
+
+        _executeBatchGeneration: function (sFormat, sAnalysisType, aObjects, sDetailLevel, bIncludeCode) {
+            var that = this;
+            var oModel = this.getOwnerComponent().getModel();
+            var iTotal = aObjects.length;
+            var iDone = 0;
+            var aResults = [];
+
+            // Progress dialog
+            if (!this._oBatchBusyDialog) {
+                this._oBatchBusyDialog = new sap.m.BusyDialog({ title: "Generating Documents" });
+            }
+            this._oBatchBusyDialog.setText("Processing 0 of " + iTotal + " objects...\nThis may take several minutes.");
+            this._oBatchBusyDialog.open();
+
+            // Process one at a time sequentially to avoid overloading
+            var fnProcessNext = function (idx) {
+                if (idx >= iTotal) {
+                    // All done - bundle into ZIP
+                    that._oBatchBusyDialog.setText("Creating ZIP file...");
+                    that._bundleAndDownloadZip(aResults, sAnalysisType, sFormat);
+                    return;
+                }
+
+                var oObj = aObjects[idx];
+                that._oBatchBusyDialog.setText(
+                    "Processing " + (idx + 1) + " of " + iTotal + "...\n" +
+                    "Object: " + oObj.objectName + "\n\n" +
+                    "Analyzing with AI and generating document..."
+                );
+
+                var oContext = oModel.bindContext("/generateOfflineDocument(...)");
+                oContext.setParameter("objectName", oObj.objectName);
+                oContext.setParameter("sourceCode", oObj.sourceCode || "");
+                oContext.setParameter("options", {
+                    documentType: sFormat,
+                    analysisType: sAnalysisType,
+                    includeCode: bIncludeCode,
+                    detailLevel: sDetailLevel,
+                    customPrompt: "",
+                    templateId: null,
+                    referenceContent: null
+                });
+
+                oContext.execute().then(function () {
+                    var oResult = oContext.getBoundContext().getObject();
+                    if (oResult.success) {
+                        aResults.push({
+                            objectName: oObj.objectName,
+                            fileName: oResult.fileName,
+                            fileContent: oResult.fileContent,
+                            fileType: oResult.fileType
+                        });
+                    }
+                    iDone++;
+                    fnProcessNext(idx + 1);
+                }).catch(function (oError) {
+                    console.error("Failed to generate document for " + oObj.objectName + ":", oError.message);
+                    iDone++;
+                    fnProcessNext(idx + 1);
+                });
+            };
+
+            fnProcessNext(0);
+        },
+
+        _bundleAndDownloadZip: function (aResults, sAnalysisType, sFormat) {
+            var that = this;
+
+            if (aResults.length === 0) {
+                this._oBatchBusyDialog.close();
+                MessageBox.error("No documents were generated successfully.");
+                return;
+            }
+
+            // If only 1 document, download directly
+            if (aResults.length === 1) {
+                this._oBatchBusyDialog.close();
+                this._downloadFile(aResults[0].fileContent, aResults[0].fileName, aResults[0].fileType);
+                MessageToast.show("Document generated successfully!");
+                return;
+            }
+
+            // Bundle multiple into a ZIP using JSZip
+            var oZip = new JSZip();
+            aResults.forEach(function (oResult) {
+                var byteCharacters = atob(oResult.fileContent);
+                var byteArray = new Uint8Array(byteCharacters.length);
+                for (var i = 0; i < byteCharacters.length; i++) {
+                    byteArray[i] = byteCharacters.charCodeAt(i);
+                }
+                oZip.file(oResult.fileName, byteArray);
+            });
+
+            oZip.generateAsync({ type: "blob" }).then(function (oBlob) {
+                that._oBatchBusyDialog.close();
+
+                var sZipName = sAnalysisType + "_Documents_" + new Date().toISOString().slice(0, 10) + ".zip";
+                var oLink = document.createElement("a");
+                oLink.href = URL.createObjectURL(oBlob);
+                oLink.download = sZipName;
+                document.body.appendChild(oLink);
+                oLink.click();
+                document.body.removeChild(oLink);
+                URL.revokeObjectURL(oLink.href);
+
+                MessageToast.show(aResults.length + " documents bundled and downloaded as ZIP!");
+            }).catch(function () {
+                that._oBatchBusyDialog.close();
+                MessageBox.error("Failed to create ZIP file.");
+            });
+        },
+
+        _downloadFile: function (sBase64, sFileName, sFileType) {
+            var sMimeType = sFileType === "PDF"
+                ? "application/pdf"
+                : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+            var byteCharacters = atob(sBase64);
+            var byteNumbers = new Array(byteCharacters.length);
+            for (var i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            var byteArray = new Uint8Array(byteNumbers);
+            var blob = new Blob([byteArray], { type: sMimeType });
+
+            var link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = sFileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
         },
 
         _exportZipListToExcel: function (oTable) {
