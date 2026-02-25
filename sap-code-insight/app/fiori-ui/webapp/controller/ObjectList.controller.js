@@ -917,6 +917,7 @@ sap.ui.define([
             // Generate Document button - uses ActionSheet (MenuButton is not a Button subclass and cannot be used as dialog beginButton)
             var oGenDocActionSheet = new sap.m.ActionSheet({
                 title: "Generate Document",
+                placement: "Top",
                 buttons: [
                     new Button({ text: "BRD (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "BRD", [oObject]); } }),
                     new Button({ text: "BRD (PDF)", icon: "sap-icon://pdf-attachment", press: function () { that._showZipGenDialog("PDF", "BRD", [oObject]); } }),
