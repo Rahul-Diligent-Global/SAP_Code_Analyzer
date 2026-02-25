@@ -914,36 +914,28 @@ sap.ui.define([
                 "</div>"
             });
 
-            // Generate Document button - opens a selection dialog on top
-            var oGenDocBtn = new Button({
+            // Generate Document MenuButton in a toolbar above the code viewer
+            // MenuButton's menu renders in SAPUI5 static area (outside dialog DOM), so it won't be clipped
+            var oGenDocMenuBtn = new sap.m.MenuButton({
                 text: "Generate Document",
                 icon: "sap-icon://document",
                 type: "Emphasized",
-                press: function () {
-                    if (that._oGenDocSelectDialog) {
-                        that._oGenDocSelectDialog.destroy();
-                    }
-                    that._oGenDocSelectDialog = new Dialog({
-                        title: "Generate Document - " + oObject.objectName,
-                        contentWidth: "380px",
-                        content: [
-                            new VBox({
-                                items: [
-                                    new Button({ text: "BRD (Word)", icon: "sap-icon://document", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("DOCX", "BRD", [oObject]); } }).addStyleClass("sapUiSmallMarginBottom"),
-                                    new Button({ text: "BRD (PDF)", icon: "sap-icon://pdf-attachment", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("PDF", "BRD", [oObject]); } }).addStyleClass("sapUiSmallMarginBottom"),
-                                    new Button({ text: "Functional Spec (Word)", icon: "sap-icon://document", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("DOCX", "FUNC_SPEC", [oObject]); } }).addStyleClass("sapUiSmallMarginBottom"),
-                                    new Button({ text: "Technical Spec (Word)", icon: "sap-icon://document", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("DOCX", "TECH_SPEC", [oObject]); } }).addStyleClass("sapUiSmallMarginBottom"),
-                                    new Button({ text: "Code Review (Word)", icon: "sap-icon://document", width: "100%", press: function () { that._oGenDocSelectDialog.close(); that._showZipGenDialog("DOCX", "CODE_REVIEW", [oObject]); } })
-                                ]
-                            }).addStyleClass("sapUiSmallMargin")
-                        ],
-                        endButton: new Button({
-                            text: "Cancel",
-                            press: function () { that._oGenDocSelectDialog.close(); }
-                        })
-                    });
-                    that._oGenDocSelectDialog.open();
-                }
+                menu: new sap.m.Menu({
+                    items: [
+                        new sap.m.MenuItem({ text: "BRD (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "BRD", [oObject]); } }),
+                        new sap.m.MenuItem({ text: "BRD (PDF)", icon: "sap-icon://pdf-attachment", press: function () { that._showZipGenDialog("PDF", "BRD", [oObject]); } }),
+                        new sap.m.MenuItem({ text: "Functional Spec (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "FUNC_SPEC", [oObject]); } }),
+                        new sap.m.MenuItem({ text: "Technical Spec (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "TECH_SPEC", [oObject]); } }),
+                        new sap.m.MenuItem({ text: "Code Review (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "CODE_REVIEW", [oObject]); } })
+                    ]
+                })
+            });
+
+            var oGenDocToolbar = new Toolbar({
+                content: [
+                    new ToolbarSpacer(),
+                    oGenDocMenuBtn
+                ]
             });
 
             this._oSourceCodeDialog = new Dialog({
@@ -952,8 +944,7 @@ sap.ui.define([
                 contentHeight: "600px",
                 resizable: true,
                 draggable: true,
-                content: [oContainer],
-                beginButton: oGenDocBtn,
+                content: [oGenDocToolbar, oContainer],
                 endButton: new Button({
                     text: "Close",
                     press: function () { that._oSourceCodeDialog.close(); }
