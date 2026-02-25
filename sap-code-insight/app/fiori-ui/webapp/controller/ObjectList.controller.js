@@ -427,7 +427,7 @@ sap.ui.define([
                 growing: true,
                 growingThreshold: 50,
                 alternateRowColors: true,
-                mode: "None",
+                mode: "MultiSelect",
                 columns: [oNameColumn, oTypeColumn],
                 items: {
                     path: "/objects",
@@ -492,6 +492,22 @@ sap.ui.define([
                     new Label({ text: "Type:" }),
                     oTypeFilterSelect,
                     new ToolbarSpacer(),
+                    new Button({
+                        icon: "sap-icon://multiselect-all",
+                        text: "Select All",
+                        type: "Transparent",
+                        press: function () {
+                            oZipTable.selectAll();
+                        }
+                    }),
+                    new Button({
+                        icon: "sap-icon://multiselect-none",
+                        text: "Unselect All",
+                        type: "Transparent",
+                        press: function () {
+                            oZipTable.removeSelections(true);
+                        }
+                    }),
                     new Button({
                         icon: "sap-icon://excel-attachment",
                         tooltip: "Export to Excel",
