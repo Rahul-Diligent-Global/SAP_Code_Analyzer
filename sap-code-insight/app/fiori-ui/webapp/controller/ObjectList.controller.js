@@ -271,7 +271,7 @@ sap.ui.define([
             var that = this;
 
             if (!this._oZipDialog) {
-                var oFileUploader = new sap.ui.unified.FileUploader({
+                this._oZipFileUploader = new sap.ui.unified.FileUploader({
                     width: "100%",
                     fileType: ["zip"],
                     placeholder: "Choose a ZIP file",
@@ -285,17 +285,19 @@ sap.ui.define([
 
                 this._oZipDialog = new sap.m.Dialog({
                     title: "Upload ABAP ZIP File",
-                    contentWidth: "400px",
+                    contentWidth: "450px",
                     content: [
-                        new sap.m.VBox({
-                            class: "sapUiSmallMargin",
+                        new VBox({
                             items: [
-                                new sap.m.Label({ text: "Select ZIP file containing ABAP objects:" }),
-                                oFileUploader
+                                new Label({
+                                    text: "Select ZIP file containing ABAP objects:",
+                                    class: "sapUiSmallMarginBottom"
+                                }),
+                                this._oZipFileUploader
                             ]
-                        })
+                        }).addStyleClass("sapUiMediumMargin")
                     ],
-                    endButton: new sap.m.Button({
+                    endButton: new Button({
                         text: "Close",
                         press: function () {
                             that._oZipDialog.close();
@@ -303,6 +305,9 @@ sap.ui.define([
                     })
                 });
             }
+
+            // Clear previously selected file
+            this._oZipFileUploader.clear();
 
             this._oZipDialog.open();
         },
