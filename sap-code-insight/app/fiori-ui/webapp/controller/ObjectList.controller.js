@@ -515,6 +515,7 @@ sap.ui.define([
                     new Label({ text: "Type:" }),
                     oTypeFilterSelect,
                     new ToolbarSpacer(),
+                    oGenDocBtn,
                     new Button({
                         icon: "sap-icon://excel-attachment",
                         tooltip: "Export to Excel",
@@ -522,8 +523,7 @@ sap.ui.define([
                         press: function () {
                             that._exportZipListToExcel(oZipTable);
                         }
-                    }),
-                    oGenDocBtn
+                    })
                 ]
             });
 
@@ -626,9 +626,7 @@ sap.ui.define([
 
         _executeBatchGeneration: function (sFormat, sAnalysisType, aObjects, sDetailLevel, bIncludeCode) {
             var that = this;
-            var oModel = this.getOwnerComponent().getModel();
             var iTotal = aObjects.length;
-            var iDone = 0;
             var aResults = [];
 
             // Progress dialog
@@ -638,10 +636,9 @@ sap.ui.define([
             this._oBatchBusyDialog.setText("Processing 0 of " + iTotal + " objects...\nThis may take several minutes.");
             this._oBatchBusyDialog.open();
 
-            // Process one at a time sequentially to avoid overloading
+            // Process one at a time sequentially via jQuery.ajax
             var fnProcessNext = function (idx) {
                 if (idx >= iTotal) {
-                    // All done - bundle into ZIP
                     that._oBatchBusyDialog.setText("Creating ZIP file...");
                     that._bundleAndDownloadZip(aResults, sAnalysisType, sFormat);
                     return;
@@ -654,35 +651,39 @@ sap.ui.define([
                     "Analyzing with AI and generating document..."
                 );
 
-                var oContext = oModel.bindContext("/generateOfflineDocument(...)");
-                oContext.setParameter("objectName", oObj.objectName);
-                oContext.setParameter("sourceCode", oObj.sourceCode || "");
-                oContext.setParameter("options", {
-                    documentType: sFormat,
-                    analysisType: sAnalysisType,
-                    includeCode: bIncludeCode,
-                    detailLevel: sDetailLevel,
-                    customPrompt: "",
-                    templateId: null,
-                    referenceContent: null
-                });
-
-                oContext.execute().then(function () {
-                    var oResult = oContext.getBoundContext().getObject();
-                    if (oResult.success) {
-                        aResults.push({
-                            objectName: oObj.objectName,
-                            fileName: oResult.fileName,
-                            fileContent: oResult.fileContent,
-                            fileType: oResult.fileType
-                        });
+                jQuery.ajax({
+                    url: "/api/analyzer/generateOfflineDocument",
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        objectName: oObj.objectName,
+                        sourceCode: oObj.sourceCode || "",
+                        options: {
+                            documentType: sFormat,
+                            analysisType: sAnalysisType,
+                            includeCode: bIncludeCode,
+                            detailLevel: sDetailLevel,
+                            customPrompt: "",
+                            templateId: null,
+                            referenceContent: null
+                        }
+                    }),
+                    timeout: 300000,
+                    success: function (oResult) {
+                        if (oResult.success) {
+                            aResults.push({
+                                objectName: oObj.objectName,
+                                fileName: oResult.fileName,
+                                fileContent: oResult.fileContent,
+                                fileType: oResult.fileType
+                            });
+                        }
+                        fnProcessNext(idx + 1);
+                    },
+                    error: function (jqXHR) {
+                        console.error("Failed to generate document for " + oObj.objectName + ":", jqXHR.status, jqXHR.responseText);
+                        fnProcessNext(idx + 1);
                     }
-                    iDone++;
-                    fnProcessNext(idx + 1);
-                }).catch(function (oError) {
-                    console.error("Failed to generate document for " + oObj.objectName + ":", oError.message);
-                    iDone++;
-                    fnProcessNext(idx + 1);
                 });
             };
 
