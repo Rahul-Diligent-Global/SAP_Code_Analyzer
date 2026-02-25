@@ -914,27 +914,34 @@ sap.ui.define([
                 "</div>"
             });
 
-            // Generate Document MenuButton in a toolbar above the code viewer
-            // MenuButton's menu renders in SAPUI5 static area (outside dialog DOM), so it won't be clipped
-            var oGenDocMenuBtn = new sap.m.MenuButton({
-                text: "Generate Document",
-                icon: "sap-icon://document",
-                type: "Emphasized",
-                menu: new sap.m.Menu({
-                    items: [
-                        new sap.m.MenuItem({ text: "BRD (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "BRD", [oObject]); } }),
-                        new sap.m.MenuItem({ text: "BRD (PDF)", icon: "sap-icon://pdf-attachment", press: function () { that._showZipGenDialog("PDF", "BRD", [oObject]); } }),
-                        new sap.m.MenuItem({ text: "Functional Spec (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "FUNC_SPEC", [oObject]); } }),
-                        new sap.m.MenuItem({ text: "Technical Spec (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "TECH_SPEC", [oObject]); } }),
-                        new sap.m.MenuItem({ text: "Code Review (Word)", icon: "sap-icon://document", press: function () { that._showZipGenDialog("DOCX", "CODE_REVIEW", [oObject]); } })
-                    ]
-                })
+            // Generate Document: Select dropdown + Generate button in toolbar above code
+            var oDocTypeSelect = new Select({
+                width: "200px",
+                items: [
+                    new Item({ key: "BRD_DOCX", text: "BRD (Word)" }),
+                    new Item({ key: "BRD_PDF", text: "BRD (PDF)" }),
+                    new Item({ key: "FUNC_SPEC_DOCX", text: "Functional Spec (Word)" }),
+                    new Item({ key: "TECH_SPEC_DOCX", text: "Technical Spec (Word)" }),
+                    new Item({ key: "CODE_REVIEW_DOCX", text: "Code Review (Word)" })
+                ]
             });
 
             var oGenDocToolbar = new Toolbar({
                 content: [
                     new ToolbarSpacer(),
-                    oGenDocMenuBtn
+                    oDocTypeSelect,
+                    new Button({
+                        text: "Generate",
+                        icon: "sap-icon://document",
+                        type: "Emphasized",
+                        press: function () {
+                            var sKey = oDocTypeSelect.getSelectedKey();
+                            var aParts = sKey.split("_");
+                            var sFormat = aParts.pop();  // DOCX or PDF
+                            var sAnalysisType = aParts.join("_"); // BRD, FUNC_SPEC, TECH_SPEC, CODE_REVIEW
+                            that._showZipGenDialog(sFormat, sAnalysisType, [oObject]);
+                        }
+                    })
                 ]
             });
 
