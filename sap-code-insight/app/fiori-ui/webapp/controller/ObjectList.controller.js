@@ -432,15 +432,16 @@ sap.ui.define([
                 items: {
                     path: "/objects",
                     template: new ColumnListItem({
-                        type: "Navigation",
-                        press: function (oEvent) {
-                            var oCtx = oEvent.getSource().getBindingContext();
-                            var sFileName = oCtx.getProperty("fileName");
-                            var oObj = that._aZipObjects.find(function (o) { return o.fileName === sFileName; });
-                            if (oObj) { that._showSourceCode(oObj); }
-                        },
                         cells: [
-                            new Text({ text: "{objectName}" }),
+                            new sap.m.Link({
+                                text: "{objectName}",
+                                press: function (oEvent) {
+                                    var oCtx = oEvent.getSource().getBindingContext();
+                                    var sFileName = oCtx.getProperty("fileName");
+                                    var oObj = that._aZipObjects.find(function (o) { return o.fileName === sFileName; });
+                                    if (oObj) { that._showSourceCode(oObj); }
+                                }
+                            }),
                             new Text({ text: "{objectType}" })
                         ]
                     })
