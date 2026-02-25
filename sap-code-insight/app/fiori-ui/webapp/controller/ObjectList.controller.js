@@ -280,17 +280,15 @@ sap.ui.define([
         // ═══════════════════════════════════════════════════════════
         // Upload Zip File
         // ═══════════════════════════════════════════════════════════
-        onUploadZipFile: function (oEvent) {
+        onUploadZipFile: function () {
             var that = this;
 
             if (!this._oZipDialog) {
-
                 var oFileUploader = new sap.ui.unified.FileUploader({
                     width: "100%",
                     fileType: ["zip"],
                     placeholder: "Choose a ZIP file",
                     change: function (oEvent) {
-                        debugger;
                         var file = oEvent.getParameter("files")[0];
                         if (file) {
                             that._processZipFile(file);
@@ -327,25 +325,27 @@ sap.ui.define([
             var reader = new FileReader();
             reader.onload = function (e) {
                 JSZip.loadAsync(e.target.result).then(function (zip) {
-
                     var aObjects = [];
 
                     zip.forEach(function (relativePath, zipEntry) {
-
                         if (!zipEntry.dir) {
-
                             var sFileName = relativePath.split("/").pop();
-                            var sObjectName = sFileName.replace(/\.[^/.]+$/, "");
-
-                            var sType = that._detectObjectType(sObjectName);
+                            var aParts = sFileName.split(".");
+                            // Pattern: <objectName>.<type>.abap e.g. z_faa_racorr20_105.prog.abap
+                            var sObjectName = aParts[0] || sFileName;
+                            var sType = that._detectObjectType(aParts.length >= 3 ? aParts[1] : "");
 
                             aObjects.push({
-                                objectName: sObjectName,
+                                objectName: sObjectName.toUpperCase(),
                                 objectType: sType
                             });
                         }
                     });
 
+                    // Close the upload dialog and show the results table
+                    if (that._oZipDialog) {
+                        that._oZipDialog.close();
+                    }
                     that._showZipObjectList(aObjects);
 
                 }).catch(function () {
@@ -354,6 +354,77 @@ sap.ui.define([
             };
 
             reader.readAsArrayBuffer(file);
+        },
+
+        _detectObjectType: function (sTypeCode) {
+            var typeMap = {
+                "prog": "Program / Report",
+                "clas": "ABAP Class",
+                "fugr": "Function Group",
+                "func": "Function Module",
+                "intf": "Interface",
+                "incl": "Include",
+                "tabl": "Table",
+                "dtel": "Data Element",
+                "doma": "Domain",
+                "shlp": "Search Help",
+                "ttyp": "Table Type",
+                "msag": "Message Class",
+                "enho": "Enhancement",
+                "badi": "BAdI Implementation"
+            };
+            var sKey = (sTypeCode || "").toLowerCase();
+            return typeMap[sKey] || sTypeCode.toUpperCase() || "Unknown";
+        },
+
+        _showZipObjectList: function (aObjects) {
+            var that = this;
+
+            // Create a JSON model for the zip objects
+            var oZipModel = new JSONModel({ objects: aObjects });
+
+            if (this._oZipResultDialog) {
+                this._oZipResultDialog.destroy();
+            }
+
+            var oTable = new Table({
+                growing: true,
+                growingThreshold: 50,
+                alternateRowColors: true,
+                mode: "None",
+                columns: [
+                    new Column({ width: "55%", header: new Text({ text: "Object Name" }) }),
+                    new Column({ width: "45%", header: new Text({ text: "Object Type" }) })
+                ],
+                items: {
+                    path: "/objects",
+                    template: new ColumnListItem({
+                        cells: [
+                            new Text({ text: "{objectName}" }),
+                            new Text({ text: "{objectType}" })
+                        ]
+                    })
+                }
+            });
+
+            oTable.setModel(oZipModel);
+
+            this._oZipResultDialog = new Dialog({
+                title: "ABAP Objects in ZIP (" + aObjects.length + " objects)",
+                contentWidth: "550px",
+                contentHeight: "400px",
+                resizable: true,
+                draggable: true,
+                content: [oTable],
+                endButton: new Button({
+                    text: "Close",
+                    press: function () {
+                        that._oZipResultDialog.close();
+                    }
+                })
+            });
+
+            this._oZipResultDialog.open();
         },
 
         // ═══════════════════════════════════════════════════════════

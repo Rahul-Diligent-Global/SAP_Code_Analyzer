@@ -41,6 +41,12 @@
                                 visible="{viewModel>/isAdmin}"
                                 class="codeInsightHeaderBtn"/>
                             <Button
+                                text="Upload ZIP"
+                                icon="sap-icon://attachment-zip-file"
+                                type="Transparent"
+                                press=".onUploadZipFile"
+                                class="codeInsightHeaderBtn sapUiSmallMarginBegin"/>
+                            <Button
                                 text="Offline Analysis"
                                 icon="sap-icon://upload"
                                 type="Transparent"
