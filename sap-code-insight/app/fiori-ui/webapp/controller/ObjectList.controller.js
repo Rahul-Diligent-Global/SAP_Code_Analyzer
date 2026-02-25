@@ -400,18 +400,17 @@ sap.ui.define([
                 this._oZipResultDialog.destroy();
             }
 
-            // Collect unique values for both columns
-            var oNameSeen = {}, oTypeSeen = {};
-            var aUniqueNames = [], aUniqueTypes = [];
+            // Collect unique types for toolbar filter & column filter
+            var oTypeSeen = {};
+            var aUniqueTypes = [];
             aObjects.forEach(function (obj) {
-                if (!oNameSeen[obj.objectName]) { oNameSeen[obj.objectName] = true; aUniqueNames.push(obj.objectName); }
                 if (!oTypeSeen[obj.objectType]) { oTypeSeen[obj.objectType] = true; aUniqueTypes.push(obj.objectType); }
             });
-            aUniqueNames.sort();
             aUniqueTypes.sort();
 
             // Filter/sort state
-            this._oZipFilterState = { objectName: "", objectType: "" };
+            this._sZipSearchQuery = "";
+            this._sZipTypeFilter = "ALL";
             this._oZipSortState = { field: null, desc: false };
 
             // Columns
@@ -445,13 +444,52 @@ sap.ui.define([
 
             oZipTable.setModel(oZipModel);
 
-            // Column press -> open sort/filter popover
+            // Store references
+            this._oZipTable = oZipTable;
+            this._oZipNameColumn = oNameColumn;
+            this._oZipTypeColumn = oTypeColumn;
+
+            // Column header press -> sort/filter popover
             oNameColumn.attachEvent("columnPress", function () {
-                that._openZipColumnMenu("objectName", oNameColumn, oTypeColumn, oZipTable, aUniqueNames);
+                that._openZipColumnMenu("objectName", oNameColumn, oTypeColumn, oZipTable);
             });
             oTypeColumn.attachEvent("columnPress", function () {
-                that._openZipColumnMenu("objectType", oTypeColumn, oNameColumn, oZipTable, aUniqueTypes);
+                that._openZipColumnMenu("objectType", oTypeColumn, oNameColumn, oZipTable);
             });
+
+            // Toolbar: Search + Type filter
+            var oSearchField = new sap.m.SearchField({
+                placeholder: "Search by object name...",
+                width: "250px",
+                liveChange: function () {
+                    that._sZipSearchQuery = oSearchField.getValue().trim();
+                    that._applyZipFilters(oZipTable);
+                }
+            });
+
+            var oTypeFilterSelect = new Select({
+                width: "180px",
+                items: [new Item({ key: "ALL", text: "All Types" })].concat(
+                    aUniqueTypes.map(function (sType) {
+                        return new Item({ key: sType, text: sType });
+                    })
+                ),
+                change: function () {
+                    that._sZipTypeFilter = oTypeFilterSelect.getSelectedKey();
+                    that._applyZipFilters(oZipTable);
+                }
+            });
+
+            var oToolbar = new Toolbar({
+                content: [
+                    oSearchField,
+                    new ToolbarSpacer(),
+                    new Label({ text: "Type:" }),
+                    oTypeFilterSelect
+                ]
+            });
+
+            oZipTable.setHeaderToolbar(oToolbar);
 
             this._oZipResultDialog = new Dialog({
                 title: "Object List (" + aObjects.length + ")",
@@ -466,92 +504,61 @@ sap.ui.define([
                 })
             });
 
-            // Store references for use in column menu
-            this._oZipTable = oZipTable;
-            this._oZipNameColumn = oNameColumn;
-            this._oZipTypeColumn = oTypeColumn;
-
             this._oZipResultDialog.open();
         },
 
-        _openZipColumnMenu: function (sField, oColumn, oOtherColumn, oTable, aUniqueValues) {
+        _openZipColumnMenu: function (sField, oColumn, oOtherColumn, oTable) {
             var that = this;
 
             if (this._oZipColumnPopover) {
                 this._oZipColumnPopover.destroy();
             }
 
-            // Current filter value for this column
-            var sCurrentFilter = this._oZipFilterState[sField] || "";
-
-            // Filter input
-            var oFilterInput = new Input({
-                placeholder: "Filter " + (sField === "objectName" ? "Object Name" : "Object Type") + "...",
-                value: sCurrentFilter,
-                width: "100%",
-                suggestionItems: aUniqueValues.map(function (val) {
-                    return new Item({ key: val, text: val });
-                }),
-                showSuggestion: true,
-                liveChange: function () {
-                    that._oZipFilterState[sField] = oFilterInput.getValue().trim();
-                    that._applyZipFilters(oTable);
-                }
-            });
-
             var oPopover = new sap.m.Popover({
                 title: sField === "objectName" ? "Object Name" : "Object Type",
                 placement: "Bottom",
-                contentWidth: "280px",
+                contentWidth: "250px",
                 content: [
                     new VBox({
                         class: "sapUiSmallMargin",
                         items: [
-                            // Sort section
-                            new Label({ text: "Sort", design: "Bold" }),
-                            new HBox({
-                                class: "sapUiTinyMarginTop",
-                                items: [
-                                    new Button({
-                                        icon: "sap-icon://sort-ascending",
-                                        text: "Ascending",
-                                        type: that._oZipSortState.field === sField && !that._oZipSortState.desc ? "Emphasized" : "Default",
-                                        press: function () {
-                                            that._oZipSortState = { field: sField, desc: false };
-                                            oColumn.setSortIndicator("Ascending");
-                                            oOtherColumn.setSortIndicator("None");
-                                            oTable.getBinding("items").sort(new Sorter(sField, false));
-                                            oPopover.close();
-                                        }
-                                    }),
-                                    new Button({
-                                        icon: "sap-icon://sort-descending",
-                                        text: "Descending",
-                                        type: that._oZipSortState.field === sField && that._oZipSortState.desc ? "Emphasized" : "Default",
-                                        class: "sapUiTinyMarginBegin",
-                                        press: function () {
-                                            that._oZipSortState = { field: sField, desc: true };
-                                            oColumn.setSortIndicator("Descending");
-                                            oOtherColumn.setSortIndicator("None");
-                                            oTable.getBinding("items").sort(new Sorter(sField, true));
-                                            oPopover.close();
-                                        }
-                                    })
-                                ]
-                            }),
-                            // Filter section
-                            new Label({ text: "Filter", design: "Bold", class: "sapUiSmallMarginTop" }),
-                            oFilterInput,
                             new Button({
-                                text: "Clear Filter",
-                                type: "Transparent",
-                                icon: "sap-icon://clear-filter",
-                                class: "sapUiTinyMarginTop",
-                                enabled: !!sCurrentFilter,
+                                icon: "sap-icon://sort-ascending",
+                                text: "Sort Ascending",
+                                type: that._oZipSortState.field === sField && !that._oZipSortState.desc ? "Emphasized" : "Transparent",
+                                width: "100%",
                                 press: function () {
-                                    that._oZipFilterState[sField] = "";
-                                    oFilterInput.setValue("");
-                                    that._applyZipFilters(oTable);
+                                    that._oZipSortState = { field: sField, desc: false };
+                                    oColumn.setSortIndicator("Ascending");
+                                    oOtherColumn.setSortIndicator("None");
+                                    oTable.getBinding("items").sort(new Sorter(sField, false));
+                                    oPopover.close();
+                                }
+                            }),
+                            new Button({
+                                icon: "sap-icon://sort-descending",
+                                text: "Sort Descending",
+                                type: that._oZipSortState.field === sField && that._oZipSortState.desc ? "Emphasized" : "Transparent",
+                                width: "100%",
+                                press: function () {
+                                    that._oZipSortState = { field: sField, desc: true };
+                                    oColumn.setSortIndicator("Descending");
+                                    oOtherColumn.setSortIndicator("None");
+                                    oTable.getBinding("items").sort(new Sorter(sField, true));
+                                    oPopover.close();
+                                }
+                            }),
+                            new Button({
+                                icon: "sap-icon://clear-filter",
+                                text: "Remove Sort",
+                                type: "Transparent",
+                                width: "100%",
+                                enabled: that._oZipSortState.field === sField,
+                                press: function () {
+                                    that._oZipSortState = { field: null, desc: false };
+                                    oColumn.setSortIndicator("None");
+                                    oOtherColumn.setSortIndicator("None");
+                                    oTable.getBinding("items").sort();
                                     oPopover.close();
                                 }
                             })
@@ -567,11 +574,11 @@ sap.ui.define([
         _applyZipFilters: function (oTable) {
             var aFilters = [];
 
-            if (this._oZipFilterState.objectName) {
-                aFilters.push(new Filter("objectName", FilterOperator.Contains, this._oZipFilterState.objectName.toUpperCase()));
+            if (this._sZipSearchQuery) {
+                aFilters.push(new Filter("objectName", FilterOperator.Contains, this._sZipSearchQuery.toUpperCase()));
             }
-            if (this._oZipFilterState.objectType) {
-                aFilters.push(new Filter("objectType", FilterOperator.Contains, this._oZipFilterState.objectType));
+            if (this._sZipTypeFilter && this._sZipTypeFilter !== "ALL") {
+                aFilters.push(new Filter("objectType", FilterOperator.EQ, this._sZipTypeFilter));
             }
 
             oTable.getBinding("items").filter(aFilters.length > 0 ? new Filter({ filters: aFilters, and: true }) : []);
