@@ -277,6 +277,7 @@ sap.ui.define([
                     fileType: ["zip"],
                     placeholder: "Choose a ZIP file",
                     change: function (oEvent) {
+                        debugger;
                         var file = oEvent.getParameter("files")[0];
                         if (file) {
                             that._processZipFile(file);
