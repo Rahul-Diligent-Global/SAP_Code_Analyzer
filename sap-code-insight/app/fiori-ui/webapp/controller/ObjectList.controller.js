@@ -636,7 +636,9 @@ sap.ui.define([
             this._oBatchBusyDialog.setText("Processing 0 of " + iTotal + " objects...\nThis may take several minutes.");
             this._oBatchBusyDialog.open();
 
-            // Process one at a time sequentially via jQuery.ajax
+            var oModel = this.getOwnerComponent().getModel();
+
+            // Process one at a time sequentially using OData V4 model (handles CSRF automatically)
             var fnProcessNext = function (idx) {
                 if (idx >= iTotal) {
                     that._oBatchBusyDialog.setText("Creating ZIP file...");
@@ -651,39 +653,36 @@ sap.ui.define([
                     "Analyzing with AI and generating document..."
                 );
 
-                jQuery.ajax({
-                    url: "/api/analyzer/generateOfflineDocument",
-                    method: "POST",
-                    contentType: "application/json",
-                    data: JSON.stringify({
-                        objectName: oObj.objectName,
-                        sourceCode: oObj.sourceCode || "",
-                        options: {
-                            documentType: sFormat,
-                            analysisType: sAnalysisType,
-                            includeCode: bIncludeCode,
-                            detailLevel: sDetailLevel,
-                            customPrompt: "",
-                            templateId: null,
-                            referenceContent: null
-                        }
-                    }),
-                    timeout: 300000,
-                    success: function (oResult) {
-                        if (oResult.success) {
-                            aResults.push({
-                                objectName: oObj.objectName,
-                                fileName: oResult.fileName,
-                                fileContent: oResult.fileContent,
-                                fileType: oResult.fileType
-                            });
-                        }
-                        fnProcessNext(idx + 1);
-                    },
-                    error: function (jqXHR) {
-                        console.error("Failed to generate document for " + oObj.objectName + ":", jqXHR.status, jqXHR.responseText);
-                        fnProcessNext(idx + 1);
+                // Use OData V4 bindContext pattern (same as working OfflineAnalysis controller)
+                var oContext = oModel.bindContext("/generateOfflineDocument(...)", undefined, {
+                    $$groupId: "$direct"
+                });
+                oContext.setParameter("objectName", oObj.objectName);
+                oContext.setParameter("sourceCode", oObj.sourceCode || "");
+                oContext.setParameter("options", {
+                    documentType: sFormat,
+                    analysisType: sAnalysisType,
+                    includeCode: bIncludeCode,
+                    detailLevel: sDetailLevel,
+                    customPrompt: "",
+                    templateId: null,
+                    referenceContent: null
+                });
+
+                oContext.execute().then(function () {
+                    var oResult = oContext.getBoundContext().getObject();
+                    if (oResult && oResult.success) {
+                        aResults.push({
+                            objectName: oObj.objectName,
+                            fileName: oResult.fileName,
+                            fileContent: oResult.fileContent,
+                            fileType: oResult.fileType
+                        });
                     }
+                    fnProcessNext(idx + 1);
+                }).catch(function (oError) {
+                    console.error("Failed to generate document for " + oObj.objectName + ":", oError.message);
+                    fnProcessNext(idx + 1);
                 });
             };
 
