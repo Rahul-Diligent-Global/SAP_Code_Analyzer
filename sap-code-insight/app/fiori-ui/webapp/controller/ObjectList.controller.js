@@ -24,13 +24,16 @@ sap.ui.define([
     "sap/m/ObjectIdentifier",
     "sap/m/Panel",
     "sap/m/FlexBox",
+    "sap/m/MenuButton",
+    "sap/m/Menu",
+    "sap/m/MenuItem",
     "sap/ui/core/Item",
     "sap/ui/layout/form/SimpleForm"
 ], function (Controller, Filter, FilterOperator, Sorter, JSONModel,
              MessageBox, MessageToast, Dialog, Button, Label, Input, Select,
              Table, Column, ColumnListItem, Text, Title, Toolbar, ToolbarSpacer,
              VBox, HBox, ObjectStatus, ObjectIdentifier, Panel, FlexBox,
-             Item, SimpleForm) {
+             MenuButton, Menu, MenuItem, Item, SimpleForm) {
     "use strict";
 
     return Controller.extend("com.sap.codeinsight.controller.ObjectList", {
@@ -914,33 +917,23 @@ sap.ui.define([
                 "</div>"
             });
 
-            // Generate Document: Select dropdown + Generate button in toolbar above code
-            var oDocTypeSelect = new Select({
-                width: "200px",
-                items: [
-                    new Item({ key: "BRD_DOCX", text: "BRD (Word)" }),
-                    new Item({ key: "BRD_PDF", text: "BRD (PDF)" }),
-                    new Item({ key: "FUNC_SPEC_DOCX", text: "Functional Spec (Word)" }),
-                    new Item({ key: "TECH_SPEC_DOCX", text: "Technical Spec (Word)" }),
-                    new Item({ key: "CODE_REVIEW_DOCX", text: "Code Review (Word)" })
-                ]
-            });
-
+            // Generate Document MenuButton - same style as ObjectDetail view
             var oGenDocToolbar = new Toolbar({
                 content: [
                     new ToolbarSpacer(),
-                    oDocTypeSelect,
-                    new Button({
-                        text: "Generate",
+                    new MenuButton({
+                        text: "Generate Document",
                         icon: "sap-icon://document",
                         type: "Emphasized",
-                        press: function () {
-                            var sKey = oDocTypeSelect.getSelectedKey();
-                            var aParts = sKey.split("_");
-                            var sFormat = aParts.pop();  // DOCX or PDF
-                            var sAnalysisType = aParts.join("_"); // BRD, FUNC_SPEC, TECH_SPEC, CODE_REVIEW
-                            that._showZipGenDialog(sFormat, sAnalysisType, [oObject]);
-                        }
+                        menu: new Menu({
+                            items: [
+                                new MenuItem({ text: "Generate BRD (Word)", icon: "sap-icon://doc-attachment", press: function () { that._showZipGenDialog("DOCX", "BRD", [oObject]); } }),
+                                new MenuItem({ text: "Generate BRD (PDF)", icon: "sap-icon://pdf-attachment", press: function () { that._showZipGenDialog("PDF", "BRD", [oObject]); } }),
+                                new MenuItem({ text: "Functional Spec (Word)", icon: "sap-icon://document-text", press: function () { that._showZipGenDialog("DOCX", "FUNC_SPEC", [oObject]); } }),
+                                new MenuItem({ text: "Technical Spec (Word)", icon: "sap-icon://technical-object", press: function () { that._showZipGenDialog("DOCX", "TECH_SPEC", [oObject]); } }),
+                                new MenuItem({ text: "Code Review (Word)", icon: "sap-icon://compare", press: function () { that._showZipGenDialog("DOCX", "CODE_REVIEW", [oObject]); } })
+                            ]
+                        })
                     })
                 ]
             });
