@@ -509,10 +509,10 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
             ]
         };
 
-        const MAX_RETRIES = 5;
+        const MAX_RETRIES = 2;
         const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 529];
-        // Backoff delays: 5s, 10s, 20s, 40s, 60s
-        const getBackoffMs = (attempt) => Math.min(5000 * Math.pow(2, attempt), 60000);
+        // Backoff delays: 5s, 10s
+        const getBackoffMs = (attempt) => Math.min(5000 * Math.pow(2, attempt), 10000);
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             try {
@@ -575,7 +575,7 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
 
                 LOG.error('Claude API call failed after all retries:', error.message);
                 if (error.message.includes('529') || error.message.includes('Overloaded')) {
-                    throw new Error(`The AI service is temporarily overloaded. Please try again in a few minutes. (${MAX_RETRIES + 1} attempts over ~2 minutes)`);
+                    throw new Error(`The AI service is temporarily overloaded. Please try again in a few minutes. (${MAX_RETRIES + 1} attempts over ~1 minute)`);
                 }
                 throw new Error(`Failed to call Claude API: ${error.message}`);
             }
