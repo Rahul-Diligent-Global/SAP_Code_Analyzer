@@ -271,9 +271,14 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
             };
             await INSERT.into(DocumentGenerationLog).entries(logEntry);
 
+            // Don't double-wrap friendly messages from claude-analyzer
+            const msg = error.message?.includes('temporarily overloaded') || error.message?.includes('Please try again')
+                ? error.message
+                : `Document generation failed: ${error.message}`;
+
             return {
                 success: false,
-                message: `Document generation failed: ${error.message}`
+                message: msg
             };
         }
     }
@@ -446,9 +451,14 @@ module.exports = class CodeAnalyzerService extends cds.ApplicationService {
             };
             await INSERT.into(DocumentGenerationLog).entries(logEntry);
 
+            // Don't double-wrap friendly messages from claude-analyzer
+            const msg = error.message?.includes('temporarily overloaded') || error.message?.includes('Please try again')
+                ? error.message
+                : `Document generation failed: ${error.message}`;
+
             return {
                 success: false,
-                message: `Document generation failed: ${error.message}`
+                message: msg
             };
         }
     }

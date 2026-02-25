@@ -509,11 +509,17 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
             ]
         };
 
-        const MAX_RETRIES = 3;
+        const MAX_RETRIES = 5;
         const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 529];
+        // Backoff delays: 5s, 10s, 20s, 40s, 60s
+        const getBackoffMs = (attempt) => Math.min(5000 * Math.pow(2, attempt), 60000);
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             try {
+                if (attempt > 0) {
+                    LOG.info(`Claude API retry attempt ${attempt}/${MAX_RETRIES}...`);
+                }
+
                 const response = await fetch(this.apiUrl, {
                     method: 'POST',
                     headers: {
@@ -529,36 +535,48 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
 
                     // Retry on transient errors with exponential backoff
                     if (RETRYABLE_STATUS_CODES.includes(response.status) && attempt < MAX_RETRIES) {
-                        const waitTime = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+                        const waitTime = getBackoffMs(attempt);
                         LOG.warn(`Claude API returned ${response.status} (attempt ${attempt + 1}/${MAX_RETRIES + 1}). Retrying in ${waitTime / 1000}s...`);
                         await new Promise(resolve => setTimeout(resolve, waitTime));
                         continue;
                     }
 
-                    LOG.error(`Claude API error (${response.status}):`, errorBody);
+                    LOG.error(`Claude API error (${response.status}) after ${attempt + 1} attempt(s):`, errorBody);
+                    // User-friendly error for overloaded
+                    if (response.status === 529 || response.status === 429) {
+                        throw new Error(`The AI service is temporarily overloaded. Please try again in a few minutes. (HTTP ${response.status}, ${attempt + 1} attempts)`);
+                    }
                     throw new Error(`Claude API returned ${response.status}: ${errorBody}`);
                 }
 
                 const result = await response.json();
 
+                if (attempt > 0) {
+                    LOG.info(`Claude API succeeded on attempt ${attempt + 1}`);
+                }
                 LOG.info(`Claude API response: ${result.usage?.input_tokens} input tokens, ${result.usage?.output_tokens} output tokens`);
 
                 return result;
 
             } catch (error) {
-                if (error.message.includes('Claude API returned')) {
+                // Don't retry user-friendly errors or non-retryable API errors
+                if (error.message.includes('AI service is temporarily overloaded') ||
+                    (error.message.includes('Claude API returned') && !RETRYABLE_STATUS_CODES.some(c => error.message.includes(`returned ${c}`)))) {
                     throw error;
                 }
 
-                // Retry on network errors
+                // Retry on network errors and retryable API errors
                 if (attempt < MAX_RETRIES) {
-                    const waitTime = Math.pow(2, attempt + 1) * 1000;
+                    const waitTime = getBackoffMs(attempt);
                     LOG.warn(`Claude API call failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}): ${error.message}. Retrying in ${waitTime / 1000}s...`);
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                     continue;
                 }
 
                 LOG.error('Claude API call failed after all retries:', error.message);
+                if (error.message.includes('529') || error.message.includes('Overloaded')) {
+                    throw new Error(`The AI service is temporarily overloaded. Please try again in a few minutes. (${MAX_RETRIES + 1} attempts over ~2 minutes)`);
+                }
                 throw new Error(`Failed to call Claude API: ${error.message}`);
             }
         }
