@@ -320,8 +320,19 @@ sap.ui.define([
                             var sFileName = relativePath.split("/").pop();
                             var aParts = sFileName.split(".");
                             // Pattern: <objectName>.<type>.abap e.g. z_faa_racorr20_105.prog.abap
-                            var sObjectName = aParts[0] || sFileName;
-                            var sType = that._detectObjectType(aParts.length >= 3 ? aParts[1] : "");
+                            // For fugr: <groupName>.fugr.<functionModuleName>.abap
+                            var sTypeCode = aParts.length >= 3 ? aParts[1] : "";
+                            var sObjectName;
+                            var sType;
+
+                            if (sTypeCode.toLowerCase() === "fugr" && aParts.length >= 4 && aParts[2]) {
+                                // Function group file: use the 3rd segment as FM name
+                                sObjectName = aParts[2];
+                                sType = "Function Module";
+                            } else {
+                                sObjectName = aParts[0] || sFileName;
+                                sType = that._detectObjectType(sTypeCode);
+                            }
                             var idx = aObjects.length;
 
                             aObjects.push({
