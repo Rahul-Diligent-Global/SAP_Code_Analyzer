@@ -28,12 +28,19 @@
 
                         <HBox alignItems="Center">
                             <Button
+                                text="Upload ZIP File"
+                                icon="sap-icon://upload"
+                                type="Transparent"
+                                press=".onUploadZipFile"
+                                visible="{viewModel>/isAdmin}"
+                                class="codeInsightHeaderBtn"/>
+                            <Button
                                 text="Tenant Manager"
                                 icon="sap-icon://company-view"
                                 type="Transparent"
                                 press=".onOpenTenantManager"
                                 visible="{viewModel>/isAdmin}"
-                                class="codeInsightHeaderBtn"/>
+                                class="codeInsightHeaderBtn sapUiSmallMarginBegin"/>
                             <Button
                                 text="Offline Analysis"
                                 icon="sap-icon://upload"

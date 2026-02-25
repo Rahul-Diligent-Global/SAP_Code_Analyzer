@@ -265,6 +265,84 @@ sap.ui.define([
         },
 
         // ═══════════════════════════════════════════════════════════
+        // Upload Zip File
+        // ═══════════════════════════════════════════════════════════
+        onUploadZipFile: function (oEvent) {
+            var that = this;
+
+            if (!this._oZipDialog) {
+
+                var oFileUploader = new sap.ui.unified.FileUploader({
+                    width: "100%",
+                    fileType: ["zip"],
+                    placeholder: "Choose a ZIP file",
+                    change: function (oEvent) {
+                        var file = oEvent.getParameter("files")[0];
+                        if (file) {
+                            that._processZipFile(file);
+                        }
+                    }
+                });
+
+                this._oZipDialog = new sap.m.Dialog({
+                    title: "Upload ABAP ZIP File",
+                    contentWidth: "400px",
+                    content: [
+                        new sap.m.VBox({
+                            class: "sapUiSmallMargin",
+                            items: [
+                                new sap.m.Label({ text: "Select ZIP file containing ABAP objects:" }),
+                                oFileUploader
+                            ]
+                        })
+                    ],
+                    endButton: new sap.m.Button({
+                        text: "Close",
+                        press: function () {
+                            that._oZipDialog.close();
+                        }
+                    })
+                });
+            }
+
+            this._oZipDialog.open();
+        },
+
+        _processZipFile: function (file) {
+            var that = this;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                JSZip.loadAsync(e.target.result).then(function (zip) {
+
+                    var aObjects = [];
+
+                    zip.forEach(function (relativePath, zipEntry) {
+
+                        if (!zipEntry.dir) {
+
+                            var sFileName = relativePath.split("/").pop();
+                            var sObjectName = sFileName.replace(/\.[^/.]+$/, "");
+
+                            var sType = that._detectObjectType(sObjectName);
+
+                            aObjects.push({
+                                objectName: sObjectName,
+                                objectType: sType
+                            });
+                        }
+                    });
+
+                    that._showZipObjectList(aObjects);
+
+                }).catch(function () {
+                    sap.m.MessageBox.error("Invalid ZIP file.");
+                });
+            };
+
+            reader.readAsArrayBuffer(file);
+        },
+
+        // ═══════════════════════════════════════════════════════════
         // TENANT MANAGER
         // ═══════════════════════════════════════════════════════════
 
