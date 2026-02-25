@@ -588,17 +588,22 @@ sap.ui.define([
                     }
                 }),
                 afterOpen: function () {
-                    // Inject textarea after dialog is rendered - handles large files natively
+                    // Get the dialog's content section and compute available height
+                    var oDlgDom = that._oSourceCodeDialog.getDomRef();
+                    var oSection = oDlgDom ? oDlgDom.querySelector(".sapMDialogSection") : null;
+                    var iHeight = oSection ? oSection.clientHeight : 550;
+
                     var oDiv = document.getElementById(sContainerId);
                     if (oDiv) {
+                        oDiv.style.height = iHeight + "px";
                         var oTextarea = document.createElement("textarea");
                         oTextarea.readOnly = true;
                         oTextarea.wrap = "off";
                         oTextarea.value = sCode;
                         oTextarea.style.cssText =
-                            "width:100%; height:100%; resize:none; border:none; outline:none; " +
+                            "width:100%; height:" + iHeight + "px; resize:none; border:none; outline:none; " +
                             "font-family: Consolas, 'Courier New', monospace; font-size: 13px; " +
-                            "line-height: 1.6; tab-size: 4; padding: 16px; " +
+                            "line-height: 1.6; tab-size: 4; padding: 16px; box-sizing: border-box; " +
                             "background: #1e1e1e; color: #d4d4d4;";
                         oDiv.appendChild(oTextarea);
                     }
