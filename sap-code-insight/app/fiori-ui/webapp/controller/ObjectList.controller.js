@@ -26,13 +26,12 @@ sap.ui.define([
     "sap/m/FlexBox",
     "sap/m/Link",
     "sap/ui/core/Item",
-    "sap/ui/core/CustomData",
     "sap/ui/layout/form/SimpleForm"
 ], function (Controller, Filter, FilterOperator, Sorter, JSONModel,
              MessageBox, MessageToast, Dialog, Button, Label, Input, Select,
              Table, Column, ColumnListItem, Text, Title, Toolbar, ToolbarSpacer,
              VBox, HBox, ObjectStatus, ObjectIdentifier, Panel, FlexBox,
-             Link, Item, CustomData, SimpleForm) {
+             Link, Item, SimpleForm) {
     "use strict";
 
     return Controller.extend("com.sap.codeinsight.controller.ObjectList", {
@@ -438,14 +437,31 @@ sap.ui.define([
                             new Link({
                                 text: "{objectName}",
                                 wrapping: false,
-                                customData: [
-                                    new CustomData({ key: "fileName", value: "{fileName}" })
-                                ],
                                 press: function (oEvent) {
-                                    var sFileName = oEvent.getSource().data("fileName");
-                                    if (!sFileName) { return; }
-                                    var oObj = that._aZipObjects.find(function (o) { return o.fileName === sFileName; });
-                                    if (oObj) { that._showSourceCode(oObj); }
+                                    var oLink = oEvent.getSource();
+                                    var oObj = null;
+
+                                    // Approach 1: get fileName from parent ColumnListItem binding context
+                                    try {
+                                        var oItem = oLink.getParent();
+                                        var oCtx = oItem && oItem.getBindingContext();
+                                        if (oCtx) {
+                                            var sFileName = oCtx.getProperty("fileName");
+                                            if (sFileName) {
+                                                oObj = that._aZipObjects.find(function (o) { return o.fileName === sFileName; });
+                                            }
+                                        }
+                                    } catch (e) { /* fallback below */ }
+
+                                    // Approach 2: fallback to matching by objectName from link text
+                                    if (!oObj) {
+                                        var sName = oLink.getText();
+                                        oObj = that._aZipObjects.find(function (o) { return o.objectName === sName; });
+                                    }
+
+                                    if (oObj) {
+                                        that._showSourceCode(oObj);
+                                    }
                                 }
                             }),
                             new Text({ text: "{objectType}" })
