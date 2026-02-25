@@ -24,13 +24,15 @@ sap.ui.define([
     "sap/m/ObjectIdentifier",
     "sap/m/Panel",
     "sap/m/FlexBox",
+    "sap/m/Link",
     "sap/ui/core/Item",
+    "sap/ui/core/CustomData",
     "sap/ui/layout/form/SimpleForm"
 ], function (Controller, Filter, FilterOperator, Sorter, JSONModel,
              MessageBox, MessageToast, Dialog, Button, Label, Input, Select,
              Table, Column, ColumnListItem, Text, Title, Toolbar, ToolbarSpacer,
              VBox, HBox, ObjectStatus, ObjectIdentifier, Panel, FlexBox,
-             Item, SimpleForm) {
+             Link, Item, CustomData, SimpleForm) {
     "use strict";
 
     return Controller.extend("com.sap.codeinsight.controller.ObjectList", {
@@ -433,11 +435,11 @@ sap.ui.define([
                     path: "/objects",
                     template: new ColumnListItem({
                         cells: [
-                            new sap.m.Link({
+                            new Link({
                                 text: "{objectName}",
                                 wrapping: false,
                                 customData: [
-                                    new sap.ui.core.CustomData({ key: "fileName", value: "{fileName}" })
+                                    new CustomData({ key: "fileName", value: "{fileName}" })
                                 ],
                                 press: function (oEvent) {
                                     var sFileName = oEvent.getSource().data("fileName");
