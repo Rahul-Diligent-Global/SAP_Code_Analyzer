@@ -566,49 +566,43 @@ sap.ui.define([
             }
 
             var sCode = oObject.sourceCode || "* No source code available";
-            var aLines = sCode.split("\n");
+            var iLineCount = sCode.split("\n").length;
 
-            // Build line-numbered plain text for the code area
-            var aNumbered = [];
-            for (var i = 0; i < aLines.length; i++) {
-                var sNum = String(i + 1);
-                // Pad line number to 5 chars for alignment
-                while (sNum.length < 5) { sNum = " " + sNum; }
-                aNumbered.push(sNum + "  " + aLines[i]);
-            }
-            var sFormattedCode = aNumbered.join("\n");
-
-            // Use a simple pre/code block - no HTML injection, pure text
-            var oCodeDisplay = new sap.m.ScrollContainer({
-                height: "100%",
-                width: "100%",
-                vertical: true,
-                horizontal: true,
-                content: [
-                    new sap.ui.core.HTML({
-                        content: "<pre style='font-family: Consolas, \"Courier New\", monospace; font-size: 13px; " +
-                            "background: #1e1e1e; color: #d4d4d4; margin: 0; padding: 16px; " +
-                            "line-height: 1.6; tab-size: 4; white-space: pre; min-height: 100%;'>" +
-                            sFormattedCode.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") +
-                            "</pre>",
-                        sanitizeContent: false
-                    })
-                ]
+            // Use a container div - we'll inject a textarea after dialog opens
+            var sContainerId = "zipCodeContainer_" + Date.now();
+            var oContainer = new sap.ui.core.HTML({
+                content: "<div id='" + sContainerId + "' style='width:100%;height:100%;'></div>"
             });
 
             this._oSourceCodeDialog = new Dialog({
-                title: oObject.objectName + " (" + oObject.objectType + ") - " + aLines.length + " lines",
+                title: oObject.objectName + " (" + oObject.objectType + ") - " + iLineCount + " lines",
                 contentWidth: "900px",
                 contentHeight: "600px",
                 resizable: true,
                 draggable: true,
-                content: [oCodeDisplay],
+                content: [oContainer],
                 endButton: new Button({
                     text: "Close",
                     press: function () {
                         that._oSourceCodeDialog.close();
                     }
-                })
+                }),
+                afterOpen: function () {
+                    // Inject textarea after dialog is rendered - handles large files natively
+                    var oDiv = document.getElementById(sContainerId);
+                    if (oDiv) {
+                        var oTextarea = document.createElement("textarea");
+                        oTextarea.readOnly = true;
+                        oTextarea.wrap = "off";
+                        oTextarea.value = sCode;
+                        oTextarea.style.cssText =
+                            "width:100%; height:100%; resize:none; border:none; outline:none; " +
+                            "font-family: Consolas, 'Courier New', monospace; font-size: 13px; " +
+                            "line-height: 1.6; tab-size: 4; padding: 16px; " +
+                            "background: #1e1e1e; color: #d4d4d4;";
+                        oDiv.appendChild(oTextarea);
+                    }
+                }
             });
 
             this._oSourceCodeDialog.open();
