@@ -313,6 +313,7 @@ sap.ui.define([
             reader.onload = function (e) {
                 JSZip.loadAsync(e.target.result).then(function (zip) {
                     var aObjects = [];
+                    var aPromises = [];
 
                     zip.forEach(function (relativePath, zipEntry) {
                         if (!zipEntry.dir) {
@@ -321,19 +322,33 @@ sap.ui.define([
                             // Pattern: <objectName>.<type>.abap e.g. z_faa_racorr20_105.prog.abap
                             var sObjectName = aParts[0] || sFileName;
                             var sType = that._detectObjectType(aParts.length >= 3 ? aParts[1] : "");
+                            var idx = aObjects.length;
 
                             aObjects.push({
                                 objectName: sObjectName.toUpperCase(),
-                                objectType: sType
+                                objectType: sType,
+                                fileName: sFileName,
+                                sourceCode: ""
                             });
+
+                            // Read file content asynchronously
+                            aPromises.push(
+                                zipEntry.async("string").then(function (content) {
+                                    aObjects[idx].sourceCode = content;
+                                })
+                            );
                         }
                     });
 
-                    // Close the upload dialog and show the results table
-                    if (that._oZipDialog) {
-                        that._oZipDialog.close();
-                    }
-                    that._showZipObjectList(aObjects);
+                    // Wait for all file contents to be read
+                    Promise.all(aPromises).then(function () {
+                        if (that._oZipDialog) {
+                            that._oZipDialog.close();
+                        }
+                        // Store objects for later access
+                        that._aZipObjects = aObjects;
+                        that._showZipObjectList(aObjects);
+                    });
 
                 }).catch(function () {
                     sap.m.MessageBox.error("Invalid ZIP file.");
@@ -367,7 +382,6 @@ sap.ui.define([
         _showZipObjectList: function (aObjects) {
             var that = this;
 
-            // Create a JSON model for the zip objects
             var oZipModel = new JSONModel({ objects: aObjects });
 
             if (this._oZipResultDialog) {
@@ -386,6 +400,12 @@ sap.ui.define([
                 items: {
                     path: "/objects",
                     template: new ColumnListItem({
+                        type: "Navigation",
+                        press: function (oEvent) {
+                            var oCtx = oEvent.getSource().getBindingContext();
+                            var iIndex = parseInt(oCtx.getPath().split("/").pop(), 10);
+                            that._showSourceCode(that._aZipObjects[iIndex]);
+                        },
                         cells: [
                             new Text({ text: "{objectName}" }),
                             new Text({ text: "{objectType}" })
@@ -398,8 +418,8 @@ sap.ui.define([
 
             this._oZipResultDialog = new Dialog({
                 title: "ABAP Objects in ZIP (" + aObjects.length + " objects)",
-                contentWidth: "550px",
-                contentHeight: "400px",
+                contentWidth: "600px",
+                contentHeight: "450px",
                 resizable: true,
                 draggable: true,
                 content: [oTable],
@@ -412,6 +432,82 @@ sap.ui.define([
             });
 
             this._oZipResultDialog.open();
+        },
+
+        _showSourceCode: function (oObject) {
+            var that = this;
+
+            if (this._oSourceCodeDialog) {
+                this._oSourceCodeDialog.destroy();
+            }
+
+            var sCode = oObject.sourceCode || "// No source code available";
+            var aLines = sCode.split("\n");
+
+            // Build HTML with line numbers and syntax highlighting
+            var aHtml = [
+                "<div style='font-family: \"Courier New\", Consolas, monospace; font-size: 13px; background: #1e1e1e; color: #d4d4d4; padding: 12px; overflow: auto; height: 100%; line-height: 1.5; tab-size: 4;'>"
+            ];
+
+            aHtml.push("<table style='border-collapse: collapse; width: 100%;'>");
+            for (var i = 0; i < aLines.length; i++) {
+                var sLine = aLines[i]
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+
+                // ABAP syntax highlighting
+                // Comments (lines starting with * or containing ")
+                if (/^\*/.test(sLine.trim()) || /^\s*"/.test(sLine)) {
+                    sLine = "<span style='color: #6a9955;'>" + sLine + "</span>";
+                } else {
+                    // Keywords
+                    sLine = sLine.replace(
+                        /\b(REPORT|DATA|TYPE|TYPES|CONSTANTS|FIELD-SYMBOLS|INCLUDE|TABLES|SELECT|FROM|WHERE|INTO|TABLE|ENDSELECT|IF|ELSE|ELSEIF|ENDIF|DO|ENDDO|LOOP|ENDLOOP|AT|ENDAT|CASE|WHEN|ENDCASE|FORM|ENDFORM|PERFORM|CALL|FUNCTION|METHOD|ENDMETHOD|CLASS|ENDCLASS|WRITE|APPEND|CLEAR|REFRESH|FREE|MOVE|MOVE-CORRESPONDING|SORT|DELETE|MODIFY|READ|INSERT|COLLECT|CONCATENATE|SPLIT|REPLACE|CONDENSE|TRANSLATE|SEARCH|ASSIGN|UNASSIGN|NEW|CREATE|RAISE|TRY|CATCH|ENDTRY|RETURN|EXIT|CHECK|CONTINUE|STOP|SUBMIT|LEAVE|SET|GET|EXPORT|IMPORT|MESSAGE|AUTHORITY-CHECK|COMMIT|ROLLBACK|USING|CHANGING|RETURNING|EXPORTING|IMPORTING|VALUE|REFERENCE|BEGIN|END|OF|STRUCTURE|DEFINITION|IMPLEMENTATION|PUBLIC|PRIVATE|PROTECTED|SECTION|INHERITING|ABSTRACT|FINAL|REDEFINITION|CORRESPONDING|ABAP|LIKE|LINE|STANDARD|SORTED|HASHED|RANGE|INITIAL|SPACE|SY-SUBRC|SY-TABIX|SY-INDEX|SY-DATUM|SY-UZEIT|WITH|HEADER|OCCURS|SELECTION-SCREEN|PARAMETERS|SELECT-OPTIONS|AS|CHECKBOX|RADIOBUTTON|GROUP|DEFAULT|OBLIGATORY|NO-DISPLAY)\b/gi,
+                        "<span style='color: #569cd6;'>$1</span>"
+                    );
+                    // Strings
+                    sLine = sLine.replace(
+                        /('[^']*')/g,
+                        "<span style='color: #ce9178;'>$1</span>"
+                    );
+                    // Numbers
+                    sLine = sLine.replace(
+                        /\b(\d+)\b/g,
+                        "<span style='color: #b5cea8;'>$1</span>"
+                    );
+                }
+
+                var sLineNum = String(i + 1);
+                aHtml.push(
+                    "<tr>" +
+                    "<td style='color: #858585; text-align: right; padding-right: 12px; user-select: none; border-right: 1px solid #333; min-width: 45px; vertical-align: top;'>" + sLineNum + "</td>" +
+                    "<td style='padding-left: 12px; white-space: pre; word-break: break-all;'>" + sLine + "</td>" +
+                    "</tr>"
+                );
+            }
+            aHtml.push("</table></div>");
+
+            var oHtmlContent = new sap.ui.core.HTML({
+                content: "<div style='height:100%;'>" + aHtml.join("") + "</div>"
+            });
+
+            this._oSourceCodeDialog = new Dialog({
+                title: oObject.objectName + " (" + oObject.objectType + ") - " + aLines.length + " lines",
+                contentWidth: "900px",
+                contentHeight: "600px",
+                resizable: true,
+                draggable: true,
+                content: [oHtmlContent],
+                endButton: new Button({
+                    text: "Close",
+                    press: function () {
+                        that._oSourceCodeDialog.close();
+                    }
+                })
+            });
+
+            this._oSourceCodeDialog.open();
         },
 
         // ═══════════════════════════════════════════════════════════
