@@ -490,7 +490,7 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
     }
 
     /**
-     * Call Claude API
+     * Call Claude API with retry logic for transient errors (429, 529, 500, 502, 503)
      */
     async _callClaudeAPI(systemPrompt, userMessage, maxTokens) {
         if (!this.apiKey) {
@@ -509,36 +509,58 @@ Do not include any text before or after the JSON. Do not wrap in markdown code b
             ]
         };
 
-        try {
-            // Using native fetch (Node.js 18+) or node-fetch
-            const response = await fetch(this.apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': this.apiKey,
-                    'anthropic-version': '2023-06-01'
-                },
-                body: JSON.stringify(requestBody)
-            });
+        const MAX_RETRIES = 3;
+        const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 529];
 
-            if (!response.ok) {
-                const errorBody = await response.text();
-                LOG.error(`Claude API error (${response.status}):`, errorBody);
-                throw new Error(`Claude API returned ${response.status}: ${errorBody}`);
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                const response = await fetch(this.apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': this.apiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+
+                    // Retry on transient errors with exponential backoff
+                    if (RETRYABLE_STATUS_CODES.includes(response.status) && attempt < MAX_RETRIES) {
+                        const waitTime = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+                        LOG.warn(`Claude API returned ${response.status} (attempt ${attempt + 1}/${MAX_RETRIES + 1}). Retrying in ${waitTime / 1000}s...`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        continue;
+                    }
+
+                    LOG.error(`Claude API error (${response.status}):`, errorBody);
+                    throw new Error(`Claude API returned ${response.status}: ${errorBody}`);
+                }
+
+                const result = await response.json();
+
+                LOG.info(`Claude API response: ${result.usage?.input_tokens} input tokens, ${result.usage?.output_tokens} output tokens`);
+
+                return result;
+
+            } catch (error) {
+                if (error.message.includes('Claude API returned')) {
+                    throw error;
+                }
+
+                // Retry on network errors
+                if (attempt < MAX_RETRIES) {
+                    const waitTime = Math.pow(2, attempt + 1) * 1000;
+                    LOG.warn(`Claude API call failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}): ${error.message}. Retrying in ${waitTime / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    continue;
+                }
+
+                LOG.error('Claude API call failed after all retries:', error.message);
+                throw new Error(`Failed to call Claude API: ${error.message}`);
             }
-
-            const result = await response.json();
-
-            LOG.info(`Claude API response: ${result.usage?.input_tokens} input tokens, ${result.usage?.output_tokens} output tokens`);
-
-            return result;
-
-        } catch (error) {
-            if (error.message.includes('Claude API returned')) {
-                throw error;
-            }
-            LOG.error('Claude API call failed:', error.message);
-            throw new Error(`Failed to call Claude API: ${error.message}`);
         }
     }
 
