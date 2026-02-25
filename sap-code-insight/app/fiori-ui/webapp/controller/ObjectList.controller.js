@@ -597,12 +597,36 @@ sap.ui.define([
             }
 
             var sCode = oObject.sourceCode || "* No source code available";
-            var iLineCount = sCode.split("\n").length;
+            var aLines = sCode.split("\n");
+            var iLineCount = aLines.length;
 
-            // Use a container div - we'll inject a textarea after dialog opens
-            var sContainerId = "zipCodeContainer_" + Date.now();
+            // IDs for DOM elements
+            var sTimestamp = Date.now();
+            var sContainerId = "zipCodeContainer_" + sTimestamp;
+            var sCodeId = "zipCodePre_" + sTimestamp;
+            var sSearchId = "zipCodeSearch_" + sTimestamp;
+            var sCountId = "zipCodeCount_" + sTimestamp;
+
+            // Search state
+            this._iCodeSearchIdx = -1;
+            this._aCodeSearchMarks = [];
+            this._sCodeOriginalHtml = "";
+
             var oContainer = new sap.ui.core.HTML({
-                content: "<div id='" + sContainerId + "' style='width:100%;height:100%;'></div>"
+                content: "<div id='" + sContainerId + "' style='width:100%;height:100%;display:flex;flex-direction:column;'>" +
+                    "<div style='display:flex;align-items:center;padding:6px 12px;background:#2d2d2d;border-bottom:1px solid #444;gap:8px;flex-shrink:0;'>" +
+                        "<input id='" + sSearchId + "' type='text' placeholder='Find in code...' " +
+                            "style='flex:1;padding:5px 10px;border:1px solid #555;border-radius:3px;background:#1e1e1e;color:#d4d4d4;" +
+                            "font-family:Consolas,monospace;font-size:13px;outline:none;'/>" +
+                        "<span id='" + sCountId + "' style='color:#999;font-size:12px;min-width:70px;text-align:center;'>0 results</span>" +
+                        "<button id='zipCodePrev_" + sTimestamp + "' style='padding:4px 10px;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;border-radius:3px;cursor:pointer;font-size:12px;'>&#9650; Prev</button>" +
+                        "<button id='zipCodeNext_" + sTimestamp + "' style='padding:4px 10px;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;border-radius:3px;cursor:pointer;font-size:12px;'>&#9660; Next</button>" +
+                    "</div>" +
+                    "<div style='flex:1;overflow:auto;background:#1e1e1e;'>" +
+                        "<pre id='" + sCodeId + "' style='font-family:Consolas,\"Courier New\",monospace;font-size:13px;" +
+                            "color:#d4d4d4;margin:0;padding:16px;line-height:1.6;tab-size:4;white-space:pre;'></pre>" +
+                    "</div>" +
+                "</div>"
             });
 
             this._oSourceCodeDialog = new Dialog({
@@ -614,34 +638,127 @@ sap.ui.define([
                 content: [oContainer],
                 endButton: new Button({
                     text: "Close",
-                    press: function () {
-                        that._oSourceCodeDialog.close();
-                    }
+                    press: function () { that._oSourceCodeDialog.close(); }
                 }),
                 afterOpen: function () {
-                    // Get the dialog's content section and compute available height
+                    // Compute available height
                     var oDlgDom = that._oSourceCodeDialog.getDomRef();
                     var oSection = oDlgDom ? oDlgDom.querySelector(".sapMDialogSection") : null;
                     var iHeight = oSection ? oSection.clientHeight : 550;
 
-                    var oDiv = document.getElementById(sContainerId);
-                    if (oDiv) {
-                        oDiv.style.height = iHeight + "px";
-                        var oTextarea = document.createElement("textarea");
-                        oTextarea.readOnly = true;
-                        oTextarea.wrap = "off";
-                        oTextarea.value = sCode;
-                        oTextarea.style.cssText =
-                            "width:100%; height:" + iHeight + "px; resize:none; border:none; outline:none; " +
-                            "font-family: Consolas, 'Courier New', monospace; font-size: 13px; " +
-                            "line-height: 1.6; tab-size: 4; padding: 16px; box-sizing: border-box; " +
-                            "background: #1e1e1e; color: #d4d4d4;";
-                        oDiv.appendChild(oTextarea);
+                    var oOuterDiv = document.getElementById(sContainerId);
+                    if (oOuterDiv) {
+                        oOuterDiv.style.height = iHeight + "px";
                     }
+
+                    // Render code with line numbers as plain escaped text
+                    var oCodePre = document.getElementById(sCodeId);
+                    if (oCodePre) {
+                        var sEscaped = sCode.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        oCodePre.innerHTML = sEscaped;
+                        that._sCodeOriginalHtml = sEscaped;
+                    }
+
+                    // Wire up search
+                    var oSearchInput = document.getElementById(sSearchId);
+                    var oCountSpan = document.getElementById(sCountId);
+                    var oPrevBtn = document.getElementById("zipCodePrev_" + sTimestamp);
+                    var oNextBtn = document.getElementById("zipCodeNext_" + sTimestamp);
+
+                    if (oSearchInput) {
+                        var fnDoSearch = function () {
+                            that._codeSearchHighlight(oCodePre, oSearchInput.value, oCountSpan);
+                        };
+                        oSearchInput.addEventListener("input", fnDoSearch);
+                        oSearchInput.addEventListener("keydown", function (e) {
+                            if (e.key === "Enter") {
+                                if (e.shiftKey) {
+                                    that._codeSearchNavigate(oCodePre, -1, oCountSpan);
+                                } else {
+                                    that._codeSearchNavigate(oCodePre, 1, oCountSpan);
+                                }
+                            }
+                        });
+                    }
+                    if (oNextBtn) {
+                        oNextBtn.addEventListener("click", function () {
+                            that._codeSearchNavigate(oCodePre, 1, oCountSpan);
+                        });
+                    }
+                    if (oPrevBtn) {
+                        oPrevBtn.addEventListener("click", function () {
+                            that._codeSearchNavigate(oCodePre, -1, oCountSpan);
+                        });
+                    }
+
+                    // Focus search input
+                    if (oSearchInput) { oSearchInput.focus(); }
                 }
             });
 
             this._oSourceCodeDialog.open();
+        },
+
+        _codeSearchHighlight: function (oCodePre, sQuery, oCountSpan) {
+            // Reset to original
+            oCodePre.innerHTML = this._sCodeOriginalHtml;
+            this._iCodeSearchIdx = -1;
+            this._aCodeSearchMarks = [];
+
+            if (!sQuery || sQuery.length === 0) {
+                oCountSpan.textContent = "0 results";
+                return;
+            }
+
+            // Escape regex special chars
+            var sEscaped = sQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            var oRegex = new RegExp("(" + sEscaped + ")", "gi");
+
+            // Replace matches with <mark> tags
+            var iCount = 0;
+            oCodePre.innerHTML = this._sCodeOriginalHtml.replace(oRegex, function (match) {
+                iCount++;
+                return "<mark class='codeSearchMatch' style='background:#515c6a;color:#d4d4d4;border-radius:2px;padding:0 1px;'>" + match + "</mark>";
+            });
+
+            this._aCodeSearchMarks = oCodePre.querySelectorAll("mark.codeSearchMatch");
+            oCountSpan.textContent = iCount + " result" + (iCount !== 1 ? "s" : "");
+
+            // Auto-navigate to first match
+            if (iCount > 0) {
+                this._iCodeSearchIdx = 0;
+                this._highlightCurrentMatch(oCountSpan);
+            }
+        },
+
+        _codeSearchNavigate: function (oCodePre, iDirection, oCountSpan) {
+            if (!this._aCodeSearchMarks || this._aCodeSearchMarks.length === 0) return;
+
+            this._iCodeSearchIdx += iDirection;
+            var iTotal = this._aCodeSearchMarks.length;
+
+            // Wrap around
+            if (this._iCodeSearchIdx >= iTotal) { this._iCodeSearchIdx = 0; }
+            if (this._iCodeSearchIdx < 0) { this._iCodeSearchIdx = iTotal - 1; }
+
+            this._highlightCurrentMatch(oCountSpan);
+        },
+
+        _highlightCurrentMatch: function (oCountSpan) {
+            var iTotal = this._aCodeSearchMarks.length;
+            // Reset all marks to default style
+            for (var i = 0; i < iTotal; i++) {
+                this._aCodeSearchMarks[i].style.background = "#515c6a";
+                this._aCodeSearchMarks[i].style.color = "#d4d4d4";
+            }
+            // Highlight current match
+            var oCurrent = this._aCodeSearchMarks[this._iCodeSearchIdx];
+            if (oCurrent) {
+                oCurrent.style.background = "#f0b400";
+                oCurrent.style.color = "#000000";
+                oCurrent.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+            oCountSpan.textContent = (this._iCodeSearchIdx + 1) + " of " + iTotal;
         },
 
         // ═══════════════════════════════════════════════════════════
