@@ -400,36 +400,25 @@ sap.ui.define([
                 this._oZipResultDialog.destroy();
             }
 
-            // Collect unique object types for column filter
-            var aUniqueTypes = [];
-            var oTypeSeen = {};
+            // Collect unique values for both columns
+            var oNameSeen = {}, oTypeSeen = {};
+            var aUniqueNames = [], aUniqueTypes = [];
             aObjects.forEach(function (obj) {
-                if (!oTypeSeen[obj.objectType]) {
-                    oTypeSeen[obj.objectType] = true;
-                    aUniqueTypes.push(obj.objectType);
-                }
+                if (!oNameSeen[obj.objectName]) { oNameSeen[obj.objectName] = true; aUniqueNames.push(obj.objectName); }
+                if (!oTypeSeen[obj.objectType]) { oTypeSeen[obj.objectType] = true; aUniqueTypes.push(obj.objectType); }
             });
+            aUniqueNames.sort();
             aUniqueTypes.sort();
 
-            // Sort/filter state
-            this._sZipSortField = "objectName";
-            this._bZipSortDesc = false;
-            this._sZipNameFilter = "";
-            this._sZipTypeFilter = "ALL";
+            // Filter/sort state
+            this._oZipFilterState = { objectName: "", objectType: "" };
+            this._oZipSortState = { field: null, desc: false };
 
-            // Object Name column - sortable
-            var oNameColumn = new Column({
-                width: "55%",
-                header: new Text({ text: "Object Name" })
-            });
+            // Columns
+            var oNameColumn = new Column({ width: "55%", header: new Text({ text: "Object Name" }) });
+            var oTypeColumn = new Column({ width: "45%", header: new Text({ text: "Object Type" }) });
 
-            // Object Type column - sortable
-            var oTypeColumn = new Column({
-                width: "45%",
-                header: new Text({ text: "Object Type" })
-            });
-
-            // Table
+            // Table - no default sort
             var oZipTable = new Table({
                 growing: true,
                 growingThreshold: 50,
@@ -438,16 +427,13 @@ sap.ui.define([
                 columns: [oNameColumn, oTypeColumn],
                 items: {
                     path: "/objects",
-                    sorter: new Sorter("objectName", false),
                     template: new ColumnListItem({
                         type: "Navigation",
                         press: function (oEvent) {
                             var oCtx = oEvent.getSource().getBindingContext();
                             var sFileName = oCtx.getProperty("fileName");
                             var oObj = that._aZipObjects.find(function (o) { return o.fileName === sFileName; });
-                            if (oObj) {
-                                that._showSourceCode(oObj);
-                            }
+                            if (oObj) { that._showSourceCode(oObj); }
                         },
                         cells: [
                             new Text({ text: "{objectName}" }),
@@ -459,69 +445,13 @@ sap.ui.define([
 
             oZipTable.setModel(oZipModel);
 
-            // Column header press for sorting
+            // Column press -> open sort/filter popover
             oNameColumn.attachEvent("columnPress", function () {
-                if (that._sZipSortField === "objectName") {
-                    that._bZipSortDesc = !that._bZipSortDesc;
-                } else {
-                    that._sZipSortField = "objectName";
-                    that._bZipSortDesc = false;
-                }
-                oNameColumn.setSortIndicator(that._bZipSortDesc ? "Descending" : "Ascending");
-                oTypeColumn.setSortIndicator("None");
-                oZipTable.getBinding("items").sort(new Sorter("objectName", that._bZipSortDesc));
+                that._openZipColumnMenu("objectName", oNameColumn, oTypeColumn, oZipTable, aUniqueNames);
             });
-
             oTypeColumn.attachEvent("columnPress", function () {
-                if (that._sZipSortField === "objectType") {
-                    that._bZipSortDesc = !that._bZipSortDesc;
-                } else {
-                    that._sZipSortField = "objectType";
-                    that._bZipSortDesc = false;
-                }
-                oTypeColumn.setSortIndicator(that._bZipSortDesc ? "Descending" : "Ascending");
-                oNameColumn.setSortIndicator("None");
-                oZipTable.getBinding("items").sort(new Sorter("objectType", that._bZipSortDesc));
+                that._openZipColumnMenu("objectType", oTypeColumn, oNameColumn, oZipTable, aUniqueTypes);
             });
-
-            // Set initial sort indicator
-            oNameColumn.setSortIndicator("Ascending");
-
-            // Search field for Object Name
-            var oSearchField = new sap.m.SearchField({
-                placeholder: "Search by object name...",
-                width: "250px",
-                liveChange: function () {
-                    that._sZipNameFilter = oSearchField.getValue().trim();
-                    that._applyZipFilters(oZipTable);
-                }
-            });
-
-            // Type filter dropdown
-            var oTypeFilterSelect = new Select({
-                width: "180px",
-                items: [new Item({ key: "ALL", text: "All Types" })].concat(
-                    aUniqueTypes.map(function (sType) {
-                        return new Item({ key: sType, text: sType });
-                    })
-                ),
-                change: function () {
-                    that._sZipTypeFilter = oTypeFilterSelect.getSelectedKey();
-                    that._applyZipFilters(oZipTable);
-                }
-            });
-
-            // Toolbar - search and type filter only
-            var oToolbar = new Toolbar({
-                content: [
-                    oSearchField,
-                    new ToolbarSpacer(),
-                    new Label({ text: "Type:" }),
-                    oTypeFilterSelect
-                ]
-            });
-
-            oZipTable.setHeaderToolbar(oToolbar);
 
             this._oZipResultDialog = new Dialog({
                 title: "Object List (" + aObjects.length + ")",
@@ -532,23 +462,116 @@ sap.ui.define([
                 content: [oZipTable],
                 endButton: new Button({
                     text: "Close",
-                    press: function () {
-                        that._oZipResultDialog.close();
-                    }
+                    press: function () { that._oZipResultDialog.close(); }
                 })
             });
 
+            // Store references for use in column menu
+            this._oZipTable = oZipTable;
+            this._oZipNameColumn = oNameColumn;
+            this._oZipTypeColumn = oTypeColumn;
+
             this._oZipResultDialog.open();
+        },
+
+        _openZipColumnMenu: function (sField, oColumn, oOtherColumn, oTable, aUniqueValues) {
+            var that = this;
+
+            if (this._oZipColumnPopover) {
+                this._oZipColumnPopover.destroy();
+            }
+
+            // Current filter value for this column
+            var sCurrentFilter = this._oZipFilterState[sField] || "";
+
+            // Filter input
+            var oFilterInput = new Input({
+                placeholder: "Filter " + (sField === "objectName" ? "Object Name" : "Object Type") + "...",
+                value: sCurrentFilter,
+                width: "100%",
+                suggestionItems: aUniqueValues.map(function (val) {
+                    return new Item({ key: val, text: val });
+                }),
+                showSuggestion: true,
+                liveChange: function () {
+                    that._oZipFilterState[sField] = oFilterInput.getValue().trim();
+                    that._applyZipFilters(oTable);
+                }
+            });
+
+            var oPopover = new sap.m.Popover({
+                title: sField === "objectName" ? "Object Name" : "Object Type",
+                placement: "Bottom",
+                contentWidth: "280px",
+                content: [
+                    new VBox({
+                        class: "sapUiSmallMargin",
+                        items: [
+                            // Sort section
+                            new Label({ text: "Sort", design: "Bold" }),
+                            new HBox({
+                                class: "sapUiTinyMarginTop",
+                                items: [
+                                    new Button({
+                                        icon: "sap-icon://sort-ascending",
+                                        text: "Ascending",
+                                        type: that._oZipSortState.field === sField && !that._oZipSortState.desc ? "Emphasized" : "Default",
+                                        press: function () {
+                                            that._oZipSortState = { field: sField, desc: false };
+                                            oColumn.setSortIndicator("Ascending");
+                                            oOtherColumn.setSortIndicator("None");
+                                            oTable.getBinding("items").sort(new Sorter(sField, false));
+                                            oPopover.close();
+                                        }
+                                    }),
+                                    new Button({
+                                        icon: "sap-icon://sort-descending",
+                                        text: "Descending",
+                                        type: that._oZipSortState.field === sField && that._oZipSortState.desc ? "Emphasized" : "Default",
+                                        class: "sapUiTinyMarginBegin",
+                                        press: function () {
+                                            that._oZipSortState = { field: sField, desc: true };
+                                            oColumn.setSortIndicator("Descending");
+                                            oOtherColumn.setSortIndicator("None");
+                                            oTable.getBinding("items").sort(new Sorter(sField, true));
+                                            oPopover.close();
+                                        }
+                                    })
+                                ]
+                            }),
+                            // Filter section
+                            new Label({ text: "Filter", design: "Bold", class: "sapUiSmallMarginTop" }),
+                            oFilterInput,
+                            new Button({
+                                text: "Clear Filter",
+                                type: "Transparent",
+                                icon: "sap-icon://clear-filter",
+                                class: "sapUiTinyMarginTop",
+                                enabled: !!sCurrentFilter,
+                                press: function () {
+                                    that._oZipFilterState[sField] = "";
+                                    oFilterInput.setValue("");
+                                    that._applyZipFilters(oTable);
+                                    oPopover.close();
+                                }
+                            })
+                        ]
+                    })
+                ]
+            });
+
+            this._oZipColumnPopover = oPopover;
+            oPopover.openBy(oColumn);
         },
 
         _applyZipFilters: function (oTable) {
             var aFilters = [];
 
-            if (this._sZipNameFilter) {
-                aFilters.push(new Filter("objectName", FilterOperator.Contains, this._sZipNameFilter.toUpperCase()));
+            if (this._oZipFilterState.objectName) {
+                aFilters.push(new Filter("objectName", FilterOperator.Contains, this._oZipFilterState.objectName.toUpperCase()));
             }
-            if (this._sZipTypeFilter && this._sZipTypeFilter !== "ALL") {
-                aFilters.push(new Filter("objectType", FilterOperator.EQ, this._sZipTypeFilter));
+            if (this._oZipFilterState.objectType) {
+                aFilters.push(new Filter("objectType", FilterOperator.Contains, this._oZipFilterState.objectType));
             }
 
             oTable.getBinding("items").filter(aFilters.length > 0 ? new Filter({ filters: aFilters, and: true }) : []);
